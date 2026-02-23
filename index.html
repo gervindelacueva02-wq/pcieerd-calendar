@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PCIEERD Calendar Information System</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- ADDED: RRule library for handling recurring Outlook events -->
+  <script src="https://cdn.jsdelivr.net/npm/rrule@2.6.4/dist/es5/rrule.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -850,140 +852,187 @@
     }
 
     // ============================================
-    // ICS Parser (FIXED FOR OUTLOOK ACCURACY)
+    // FIXED ICS Parser (Handles Recurring & Duplicates)
     // ============================================
     
     function parseICS(icsContent) {
       const events = [];
-      const lines = icsContent.split(/\r?\n/);
+      
+      // 1. Normalize content: Unfold lines (ICS spec says long lines are folded with CRLF+SPACE)
+      const normalizedContent = icsContent.replace(/\r\n\s/g, "").replace(/\r\n/g, "\n");
+      const lines = normalizedContent.split('\n');
+      
       let currentEvent = null;
-      let currentKey = null;
-      let currentValue = '';
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        
-        // Handle line continuation
-        if (line.startsWith(' ') || line.startsWith('\t')) {
-          if (currentKey) {
-            currentValue += line.slice(1);
-            continue;
-          }
-        }
-
-        // Save previous property
-        if (currentKey && currentEvent) {
-          currentEvent[currentKey] = currentValue;
-        }
-
-        // Parse new property
+      
+      for (const line of lines) {
         const colonIndex = line.indexOf(':');
-        if (colonIndex === -1) {
-          currentKey = null;
-          continue;
-        }
+        if (colonIndex === -1) continue;
 
         const fullKey = line.slice(0, colonIndex);
-        currentValue = line.slice(colonIndex + 1);
+        const value = line.slice(colonIndex + 1);
         
         // Key might contain parameters e.g. DTSTART;TZID=...
-        // We keep the full key with params to preserve timezone info if needed later
         const keyParts = fullKey.split(';');
-        currentKey = keyParts[0]; // Store base key (DTSTART)
+        const keyName = keyParts[0].toUpperCase();
+        const params = {};
+        keyParts.slice(1).forEach(part => {
+            const [pKey, pVal] = part.split('=');
+            if(pKey && pVal) params[pKey.toUpperCase()] = pVal.replace(/"/g, '');
+        });
 
-        if (currentKey === 'BEGIN' && currentValue === 'VEVENT') {
-          currentEvent = {};
-        } else if (currentKey === 'END' && currentValue === 'VEVENT') {
-          if (currentEvent) {
-            const event = processICSEvent(currentEvent);
-            if (event) {
-              events.push(event);
-            }
-          }
+        if (keyName === 'BEGIN' && value.trim() === 'VEVENT') {
+          currentEvent = { raw: {}, params: {} };
+        } else if (keyName === 'END' && value.trim() === 'VEVENT' && currentEvent) {
+          const parsedEvents = processICSEvent(currentEvent);
+          if (parsedEvents.length > 0) events.push(...parsedEvents);
           currentEvent = null;
+        } else if (currentEvent) {
+          currentEvent.raw[keyName] = value;
+          currentEvent.params[keyName] = params;
         }
       }
 
       return events;
     }
 
-    function processICSEvent(raw) {
+    function processICSEvent(eventObj) {
       try {
+        const raw = eventObj.raw;
+        const params = eventObj.params;
+        
         const summary = raw['SUMMARY'] || 'Untitled Event';
         const location = raw['LOCATION'] || '';
         const description = raw['DESCRIPTION'] || '';
         const status = raw['STATUS'] || '';
-        const uid = raw['UID'] || '';
+        const uid = raw['UID'];
         
-        // Parse dates - try multiple keys for flexibility
-        let startDate = parseICSDate(raw['DTSTART'], raw['DTSTART;VALUE=DATE']);
-        let endDate = parseICSDate(raw['DTEND'], raw['DTEND;VALUE=DATE']);
+        // Parse dates
+        const dtStartParams = params['DTSTART'] || {};
+        const dtEndParams = params['DTEND'] || {};
         
-        if (!startDate) return null;
+        let startDate = parseICSDate(raw['DTSTART'], dtStartParams);
+        let endDate = parseICSDate(raw['DTEND'], dtEndParams);
+        
+        if (!startDate) return [];
 
         // Check for all-day events
-        const isAllDay = raw['DTSTART;VALUE=DATE'] || (raw['DTSTART'] && raw['DTSTART'].length === 8);
+        const isAllDay = (dtStartParams.VALUE === 'DATE') || (raw['DTSTART'] && !raw['DTSTART'].includes('T') && raw['DTSTART'].length === 8);
         
-        return {
-          id: uid || `ics-${Date.now()}-${Math.random()}`,
+        // Calculate duration for recurring events
+        let durationMs = 0;
+        if (endDate && startDate) durationMs = endDate - startDate;
+        if (durationMs === 0 && !isAllDay) durationMs = 60 * 60 * 1000; // Default 1 hour
+
+        // FIXED: Stable ID generation to prevent duplicates
+        const baseId = uid || `ics-${simpleHash(summary + startDate.toISOString())}`;
+
+        const baseEvent = {
+          id: baseId,
           title: summary,
-          startDate: startDate.toISOString(),
-          endDate: endDate ? endDate.toISOString() : null,
+          startDate: startDate,
+          endDate: endDate,
           location: location,
           description: description,
-          isAllDay: !!isAllDay,
+          isAllDay: isAllDay,
           status: status.toLowerCase() === 'cancelled' ? 'cancelled' : 'confirmed',
           source: 'ics'
         };
+
+        // --- RECURRING EVENTS FIX (RRULE) ---
+        if (raw['RRULE'] && window.RRule) {
+            try {
+                const rule = new RRule(RRule.parseString(raw['RRULE']));
+                const now = new Date();
+                const rangeEnd = new Date();
+                rangeEnd.setDate(rangeEnd.getDate() + 365); // Check 1 year ahead
+                
+                const occurrences = rule.between(now, rangeEnd, true);
+                
+                // Handle Excluded Dates (EXDATE)
+                const exDates = [];
+                if (raw['EXDATE']) {
+                    raw['EXDATE'].split(',').forEach(d => {
+                        const exDate = parseICSDate(d.trim(), params['EXDATE'] || {});
+                        if (exDate) exDates.push(exDate.getTime());
+                    });
+                }
+
+                return occurrences.map((date, index) => {
+                    const instanceStart = date;
+                    const instanceEnd = new Date(instanceStart.getTime() + durationMs);
+                    
+                    // Check exclusion
+                    if (exDates.some(t => Math.abs(t - instanceStart.getTime()) < 10000)) {
+                        return null;
+                    }
+
+                    return {
+                        ...baseEvent,
+                        id: `${baseId}_${index}_${instanceStart.toISOString().split('T')[0]}`,
+                        startDate: instanceStart,
+                        endDate: instanceEnd
+                    };
+                }).filter(Boolean);
+
+            } catch (e) {
+                console.warn("RRule parsing failed for " + summary, e);
+                return [baseEvent];
+            }
+        }
+
+        return [baseEvent];
       } catch (e) {
         console.error('Error processing ICS event:', e);
         return null;
       }
     }
 
-    function parseICSDate(dtValue, dateValue) {
-      const value = dateValue || dtValue;
+    function parseICSDate(value, params) {
       if (!value) return null;
-
-      // Remove any parameters (e.g. TZID=...)
-      const dateStr = value.includes(':') ? value.split(':').pop() : value;
-      
       try {
+        // Clean value
+        const dateStr = value.includes(':') ? value.split(':').pop() : value;
+        const isUTC = dateStr.endsWith('Z');
+        
+        let year, month, day, hour = 0, minute = 0, second = 0;
+
         // All-day event (YYYYMMDD)
         if (dateStr.length === 8) {
-          return new Date(
-            parseInt(dateStr.slice(0, 4)),
-            parseInt(dateStr.slice(4, 6)) - 1,
-            parseInt(dateStr.slice(6, 8))
-          );
+          return new Date(parseInt(dateStr.slice(0,4)), parseInt(dateStr.slice(4,6))-1, parseInt(dateStr.slice(6,8)));
         }
         
-        // DateTime (YYYYMMDDTHHMMSSZ or YYYYMMDDTHHMMSS)
-        if (dateStr.includes('T')) {
-          const isUTC = dateStr.endsWith('Z');
-          const cleanStr = dateStr.replace(/Z$/, '');
-          const year = parseInt(cleanStr.slice(0, 4));
-          const month = parseInt(cleanStr.slice(4, 6)) - 1;
-          const day = parseInt(cleanStr.slice(6, 8));
-          const hour = parseInt(cleanStr.slice(9, 11));
-          const minute = parseInt(cleanStr.slice(11, 13));
-          const second = parseInt(cleanStr.slice(13, 15) || '0');
-          
-          if (isUTC) {
-             // If UTC flag 'Z' is present, use UTC time
-             return new Date(Date.UTC(year, month, day, hour, minute, second));
-          } else {
-             // If NO 'Z', treat as Local Time (Floating Time)
-             // This prevents time shifts for Outlook events
-             return new Date(year, month, day, hour, minute, second);
-          }
+        // DateTime (YYYYMMDDTHHMMSSZ)
+        const cleanStr = dateStr.replace(/Z$/, '');
+        year = parseInt(cleanStr.slice(0, 4));
+        month = parseInt(cleanStr.slice(4, 6)) - 1;
+        day = parseInt(cleanStr.slice(6, 8));
+        
+        if (cleanStr.includes('T')) {
+          hour = parseInt(cleanStr.slice(9, 11));
+          minute = parseInt(cleanStr.slice(11, 13));
+          second = parseInt(cleanStr.slice(13, 15) || '0');
         }
         
-        return null;
+        if (isUTC) {
+           return new Date(Date.UTC(year, month, day, hour, minute, second));
+        } else {
+           // Treat as Local Time (Floating Time)
+           return new Date(year, month, day, hour, minute, second);
+        }
       } catch (e) {
-        console.error('Error parsing date:', dateStr, e);
         return null;
       }
+    }
+
+    // Helper for stable IDs
+    function simpleHash(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash<<5)-hash)+char;
+            hash = hash & hash;
+        }
+        return Math.abs(hash);
     }
 
     // ============================================
@@ -1057,7 +1106,7 @@
         const isAllDay = !startTime || startTime.toLowerCase() === 'all day';
         
         return {
-          id: `csv-${Date.now()}-${Math.random()}`,
+          id: `csv-${simpleHash(title + startDate.toISOString())}`,
           title: title,
           startDate: startDate.toISOString(),
           endDate: endDate ? endDate.toISOString() : null,
@@ -1149,11 +1198,11 @@
       renderEvents();
     }
 
-      async function fetchICSData() {
+    async function fetchICSData() {
       if (!state.settings.icsLink) return;
       
       try {
-        // Use our backend proxy to avoid CORS errors
+        // Use your backend proxy
         const proxyUrl = `/api/ics?url=${encodeURIComponent(state.settings.icsLink)}`;
         
         const response = await fetch(proxyUrl);
@@ -1168,8 +1217,9 @@
           timestamp: new Date().toISOString()
         }));
         
-        // Merge with existing events
-        state.events = mergeEvents(state.events.filter(e => e.source !== 'ics'), events);
+        // Merge with existing events (Remove old ICS events first to prevent duplicates)
+        state.events = state.events.filter(e => e.source !== 'ics');
+        state.events = mergeEvents(state.events, events);
         state.isOnline = true;
       } catch (e) {
         console.error('Error fetching ICS:', e);
@@ -1179,16 +1229,17 @@
         const cached = localStorage.getItem(STORAGE_KEYS.icsCache);
         if (cached) {
           const data = JSON.parse(cached);
-          state.events = mergeEvents(state.events.filter(e => e.source !== 'ics'), data.events);
+          state.events = state.events.filter(e => e.source !== 'ics');
+          state.events = mergeEvents(state.events, data.events);
         }
       }
     }
 
-        async function fetchCSVData() {
+    async function fetchCSVData() {
       if (!state.settings.csvUrl) return;
       
       try {
-        // Use our backend proxy to avoid CORS errors (same as ICS)
+        // Use your backend proxy
         const proxyUrl = `/api/ics?url=${encodeURIComponent(state.settings.csvUrl)}`;
         
         const response = await fetch(proxyUrl);
@@ -1204,7 +1255,8 @@
         }));
         
         // Merge with existing events
-        state.events = mergeEvents(state.events.filter(e => e.source !== 'csv'), events);
+        state.events = state.events.filter(e => e.source !== 'csv');
+        state.events = mergeEvents(state.events, events);
         state.isOnline = true;
       } catch (e) {
         console.error('Error fetching CSV:', e);
@@ -1214,7 +1266,8 @@
         const cached = localStorage.getItem(STORAGE_KEYS.csvCache);
         if (cached) {
           const data = JSON.parse(cached);
-          state.events = mergeEvents(state.events.filter(e => e.source !== 'csv'), data.events);
+          state.events = state.events.filter(e => e.source !== 'csv');
+          state.events = mergeEvents(state.events, data.events);
         }
       }
     }
@@ -1240,9 +1293,16 @@
     
     function renderEvents() {
       const viewContainer = document.getElementById('viewContainer');
-      viewContainer.innerHTML = ''; // Clear previous
+      viewContainer.innerHTML = ''; 
 
-      const filteredEvents = filterEventsByView();
+      // Ensure dates are Date objects
+      const processedEvents = state.events.map(e => ({
+          ...e,
+          startDate: new Date(e.startDate),
+          endDate: e.endDate ? new Date(e.endDate) : null
+      }));
+
+      const filteredEvents = filterEventsByView(processedEvents);
       const sortedEvents = sortEvents(filteredEvents);
       
       // Render based on View Mode
@@ -1291,7 +1351,7 @@
 
         const grid = document.createElement('div');
         grid.className = 'calendar-grid week-view';
-        grid.style.height = 'calc(100vh - 200px)'; // Adjust height
+        grid.style.height = 'calc(100vh - 200px)'; 
 
         for (let i = 0; i < 7; i++) {
             const currentDay = new Date(startOfWeek);
@@ -1302,19 +1362,16 @@
             const cell = document.createElement('div');
             cell.className = `grid-cell ${isToday ? 'today-cell' : ''}`;
             
-            // Header
             const header = document.createElement('div');
             header.className = 'grid-cell-header';
             header.textContent = currentDay.toLocaleDateString('en-US', { weekday: 'short' });
             cell.appendChild(header);
 
-            // Date
             const dateNum = document.createElement('div');
             dateNum.className = `grid-cell-date ${isToday ? 'today-date' : ''}`;
             dateNum.textContent = currentDay.getDate();
             cell.appendChild(dateNum);
 
-            // Events
             const dayEvents = events.filter(e => {
                 const eventDate = new Date(e.startDate);
                 return eventDate.toDateString() === currentDay.toDateString();
@@ -1358,7 +1415,6 @@
         grid.className = 'calendar-grid month-view';
         grid.style.height = 'calc(100vh - 200px)';
 
-        // Day Names
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         dayNames.forEach(name => {
             const dayNameEl = document.createElement('div');
@@ -1367,7 +1423,6 @@
             grid.appendChild(dayNameEl);
         });
 
-        // Empty cells before first day
         const startDayOfWeek = firstDay.getDay();
         for (let i = 0; i < startDayOfWeek; i++) {
             const emptyCell = document.createElement('div');
@@ -1375,7 +1430,6 @@
             grid.appendChild(emptyCell);
         }
 
-        // Days
         for (let day = 1; day <= lastDay.getDate(); day++) {
             const currentDay = new Date(now.getFullYear(), now.getMonth(), day);
             const isToday = currentDay.toDateString() === today.toDateString();
@@ -1410,7 +1464,7 @@
         container.appendChild(grid);
     }
 
-    function filterEventsByView() {
+    function filterEventsByView(events) {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       
@@ -1432,7 +1486,7 @@
       }
       
       // Include manual entries
-      const allEvents = [...state.events, ...state.manualEntries];
+      const allEvents = [...events, ...state.manualEntries.map(e => ({...e, startDate: new Date(e.startDate), endDate: e.endDate ? new Date(e.endDate) : null}))];
       
       return allEvents.filter(event => {
         const eventStart = new Date(event.startDate);
@@ -1533,9 +1587,9 @@
         const opt = { year: 'numeric', month: 'short', day: 'numeric' };
         switch(state.settings.dateFormat) {
             case 'mmddyyyy':
-                return date.toLocaleDateString('en-US'); // Default US is MM/DD/YYYY
+                return date.toLocaleDateString('en-US'); 
             case 'ddmmyyyy':
-                return date.toLocaleDateString('en-GB'); // Default GB is DD/MM/YYYY
+                return date.toLocaleDateString('en-GB'); 
             default:
                 return date.toLocaleDateString('en-US', opt);
         }
@@ -1574,7 +1628,7 @@
       const container = document.getElementById('scrollContainer');
       container.classList.remove('auto-scroll');
       
-      if (!state.settings.movementEnabled || state.settings.viewMode !== 'day') return; // Only auto scroll for day view list
+      if (!state.settings.movementEnabled || state.settings.viewMode !== 'day') return;
       
       if (state.settings.transitionStyle === 'autoScroll' || state.settings.transitionStyle === 'gentleScroll') {
         const tbody = document.querySelector('#viewContainer tbody');
@@ -1608,7 +1662,7 @@
       // Re-render events every minute to update statuses dynamically
       setInterval(() => {
         renderEvents(); 
-      }, 60000); // Every minute
+      }, 60000);
     }
 
     // ============================================
@@ -1693,7 +1747,6 @@
       document.getElementById('refreshInterval').value = state.settings.refreshInterval === 'custom' ? 'custom' : state.settings.refreshInterval;
       document.getElementById('pinSetting').value = state.settings.pin || '';
       
-      // New UI Elements
       document.getElementById('dateFormat').value = state.settings.dateFormat;
       document.getElementById('dotSizeSetting').value = state.settings.dotSize;
       document.getElementById('showDateWeek').checked = state.settings.showDateWeek;
@@ -2017,7 +2070,6 @@
       state.settings.refreshInterval = document.getElementById('refreshInterval').value;
       state.settings.pin = document.getElementById('pinSetting').value.trim();
       
-      // Save new settings
       state.settings.dateFormat = document.getElementById('dateFormat').value;
       state.settings.dotSize = parseInt(document.getElementById('dotSizeSetting').value) || 10;
       state.settings.showDateWeek = document.getElementById('showDateWeek').checked;
@@ -2036,7 +2088,7 @@
       }
       
       saveToStorage();
-      applyColors(); // Apply new colors immediately
+      applyColors();
       startAutoRefresh(); fetchAllData(); closeSettings();
       
       // Apply view mode to main display
@@ -2053,5 +2105,3 @@
   </script>
 </body>
 </html>
-
-
