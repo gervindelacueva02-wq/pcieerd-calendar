@@ -276,17 +276,6 @@
       padding: 1rem;
       margin-bottom: 1rem;
     }
-
-    .event-detail-popup {
-      position: fixed;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.5rem;
-      z-index: 150;
-      max-width: 400px;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    }
   </style>
 </head>
 <body>
@@ -336,12 +325,11 @@
       <div class="tab-content" id="tab-sources">
         <div class="space-y-6">
           <div class="info-box">
-            <p class="text-sm text-cyan-300 font-medium mb-2">Outlook ICS Troubleshooting</p>
+            <p class="text-sm text-cyan-300 font-medium mb-2">Outlook ICS Setup</p>
             <ul class="text-xs text-cyan-200/80 space-y-1">
-              <li>1. In Outlook, go to Settings - Calendar - Shared calendars</li>
+              <li>1. In Outlook, go to Settings > Calendar > Shared calendars</li>
               <li>2. Publish the calendar and copy the ICS link</li>
-              <li>3. Make sure you're copying from the correct calendar</li>
-              <li>4. Use "Test ICS" to diagnose parsing issues</li>
+              <li>3. Use "Test ICS" to verify the link works</li>
             </ul>
           </div>
 
@@ -489,11 +477,6 @@
       <!-- Debug Tab -->
       <div class="tab-content hidden" id="tab-debug">
         <div class="space-y-6">
-          <div class="warning-box">
-            <p class="text-sm text-red-300 font-medium mb-2">Duplicate Events Issue?</p>
-            <p class="text-xs text-red-200/70">If you see fewer events than expected, check if they have the same UID in the "All Events" list below. Outlook sometimes generates duplicate UIDs for recurring events.</p>
-          </div>
-
           <div>
             <h4 class="font-medium mb-4">Statistics</h4>
             <div class="bg-[var(--bg-card)] rounded-lg p-4 grid grid-cols-2 gap-4 text-sm">
@@ -531,7 +514,7 @@
           </div>
 
           <div>
-            <h4 class="font-medium mb-4">All Events (with UID)</h4>
+            <h4 class="font-medium mb-4">All Events</h4>
             <div class="bg-[var(--bg-card)] rounded-lg p-4 max-h-80 overflow-y-auto" id="allEventsList">
               <p class="text-[var(--fg-muted)] text-sm">No events loaded</p>
             </div>
@@ -588,8 +571,15 @@
 
   <script>
     // ============================================
-    // STATE & CONFIG
+    // STATE & CONFIG - Initialize FIRST
     // ============================================
+    const STORAGE_KEYS = {
+      settings: 'pcieerd_settings_v3',
+      manualEntries: 'pcieerd_manual_v3',
+      icsCache: 'pcieerd_ics_cache_v3',
+      csvCache: 'pcieerd_csv_cache_v3'
+    };
+
     const state = {
       events: [],
       settings: {
@@ -614,147 +604,192 @@
       lastUpdate: null,
       isOnline: navigator.onLine,
       cursorTimeout: null,
-      debugLog: []
+      debugLog: [],
+      refreshTimer: null,
+      countdownTimer: null
     };
 
-    const STORAGE_KEYS = {
-      settings: 'pcieerd_settings_v2',
-      manualEntries: 'pcieerd_manual_v2',
-      icsCache: 'pcieerd_ics_cache_v2',
-      csvCache: 'pcieerd_csv_cache_v2'
-    };
+    // ============================================
+    // UTILITY FUNCTIONS - Define BEFORE use
+    // ============================================
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function formatTime(date) {
+      if (!date) return '';
+      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    }
+
+    function hashString(str) {
+      if (!str) return '0';
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+      }
+      return Math.abs(hash).toString(36);
+    }
 
     // ============================================
     // LOGGING
     // ============================================
     function log(msg, type = 'info') {
-      const time = new Date().toLocaleTimeString();
-      state.debugLog.unshift({ time, msg, type });
-      if (state.debugLog.length > 150) state.debugLog.pop();
-      
-      const fn = type === 'error' ? 'error' : type === 'warning' ? 'warn' : 'log';
-      console[fn](`[${time}] ${msg}`);
-      updateDebugUI();
+      try {
+        const time = new Date().toLocaleTimeString();
+        state.debugLog.unshift({ time, msg: String(msg), type });
+        if (state.debugLog.length > 150) state.debugLog.pop();
+        
+        const fn = type === 'error' ? 'error' : type === 'warning' ? 'warn' : 'log';
+        console[fn](`[${time}] ${msg}`);
+        updateDebugUI();
+      } catch (e) {
+        console.error('Logging error:', e);
+      }
     }
 
     function updateDebugUI() {
-      const el = document.getElementById('debugLog');
-      if (!el) return;
-      
-      if (state.debugLog.length === 0) {
-        el.innerHTML = '<div class="text-[var(--fg-muted)]">Waiting for events...</div>';
-        return;
+      try {
+        const el = document.getElementById('debugLog');
+        if (!el) return;
+        
+        if (state.debugLog.length === 0) {
+          el.innerHTML = '<div class="text-[var(--fg-muted)]">Waiting for events...</div>';
+          return;
+        }
+        
+        el.innerHTML = state.debugLog.map(e => 
+          `<div class="log-entry log-${e.type}"><span class="opacity-50">[${e.time}]</span> ${escapeHtml(e.msg)}</div>`
+        ).join('');
+      } catch (e) {
+        console.error('updateDebugUI error:', e);
       }
-      
-      el.innerHTML = state.debugLog.map(e => 
-        `<div class="log-entry log-${e.type}"><span class="opacity-50">[${e.time}]</span> ${escapeHtml(e.msg)}</div>`
-      ).join('');
     }
 
     function updateStats() {
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      
-      const all = [...state.events, ...state.manualEntries];
-      const todayEvents = all.filter(e => {
-        const d = new Date(e.startDate);
-        return d.toDateString() === today.toDateString();
-      });
+      try {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        const all = [...state.events, ...state.manualEntries];
+        const todayEvents = all.filter(e => {
+          const d = new Date(e.startDate);
+          return d.toDateString() === today.toDateString();
+        });
 
-      document.getElementById('debugTotalEvents').textContent = all.length;
-      document.getElementById('debugIcsEvents').textContent = state.events.filter(e => e.source === 'ics').length;
-      document.getElementById('debugCsvEvents').textContent = state.events.filter(e => e.source === 'csv').length;
-      document.getElementById('debugManualEvents').textContent = state.manualEntries.length;
-      document.getElementById('debugTodayEvents').textContent = todayEvents.length;
+        const elTotal = document.getElementById('debugTotalEvents');
+        const elIcs = document.getElementById('debugIcsEvents');
+        const elCsv = document.getElementById('debugCsvEvents');
+        const elManual = document.getElementById('debugManualEvents');
+        const elToday = document.getElementById('debugTodayEvents');
+        
+        if (elTotal) elTotal.textContent = all.length;
+        if (elIcs) elIcs.textContent = state.events.filter(e => e.source === 'ics').length;
+        if (elCsv) elCsv.textContent = state.events.filter(e => e.source === 'csv').length;
+        if (elManual) elManual.textContent = state.manualEntries.length;
+        if (elToday) elToday.textContent = todayEvents.length;
 
-      // Update all events list
-      const listEl = document.getElementById('allEventsList');
-      if (listEl) {
-        if (all.length === 0) {
-          listEl.innerHTML = '<p class="text-[var(--fg-muted)] text-sm">No events loaded</p>';
-        } else {
-          const sorted = all.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
-          listEl.innerHTML = sorted.map(e => {
-            const d = new Date(e.startDate);
-            const uidDisplay = state.settings.showUid && e.uid ? `<div class="text-[0.65rem] text-amber-400 truncate">UID: ${e.uid}</div>` : '';
-            return `<div class="py-2 border-b border-[var(--border)] last:border-0">
-              <div class="font-medium text-sm">${escapeHtml(e.title)}</div>
-              <div class="text-[0.7rem] text-[var(--fg-muted)]">
-                ${d.toLocaleDateString()} ${e.isAllDay ? '(All Day)' : d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
-                <span class="event-source-badge source-${e.source}">${e.source}</span>
-              </div>
-              ${uidDisplay}
-            </div>`;
-          }).join('');
+        const listEl = document.getElementById('allEventsList');
+        if (listEl) {
+          if (all.length === 0) {
+            listEl.innerHTML = '<p class="text-[var(--fg-muted)] text-sm">No events loaded</p>';
+          } else {
+            const sorted = all.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+            listEl.innerHTML = sorted.map(e => {
+              const d = new Date(e.startDate);
+              const uidDisplay = state.settings.showUid && e.uid ? `<div class="text-[0.65rem] text-amber-400 truncate">UID: ${escapeHtml(e.uid)}</div>` : '';
+              return `<div class="py-2 border-b border-[var(--border)] last:border-0">
+                <div class="font-medium text-sm">${escapeHtml(e.title)}</div>
+                <div class="text-[0.7rem] text-[var(--fg-muted)]">
+                  ${d.toLocaleDateString()} ${e.isAllDay ? '(All Day)' : d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                  <span class="event-source-badge source-${e.source}">${e.source}</span>
+                </div>
+                ${uidDisplay}
+              </div>`;
+            }).join('');
+          }
         }
+      } catch (e) {
+        console.error('updateStats error:', e);
       }
     }
 
     // ============================================
-    // IMPROVED ICS PARSER
+    // ICS PARSER
     // ============================================
     function parseICS(content) {
-      log('Parsing ICS content...', 'info');
-      const events = [];
-      const lines = content.split(/\r?\n/);
-      let currentEvent = null;
-      let currentKey = null;
-      let currentValue = '';
-      let veventCount = 0;
+      try {
+        log('Parsing ICS content...', 'info');
+        const events = [];
+        const lines = content.split(/\r?\n/);
+        let currentEvent = null;
+        let currentKey = null;
+        let currentValue = '';
+        let veventCount = 0;
 
-      log(`ICS has ${lines.length} lines`, 'info');
+        log(`ICS has ${lines.length} lines`, 'info');
 
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        
-        // Handle line folding
-        if ((line.startsWith(' ') || line.startsWith('\t')) && currentKey) {
-          currentValue += line.slice(1);
-          continue;
-        }
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          
+          // Handle line folding
+          if ((line.startsWith(' ') || line.startsWith('\t')) && currentKey) {
+            currentValue += line.slice(1);
+            continue;
+          }
 
-        // Save previous property
-        if (currentKey && currentEvent) {
-          currentEvent[currentKey] = currentValue;
-        }
+          // Save previous property
+          if (currentKey && currentEvent) {
+            currentEvent[currentKey] = currentValue;
+          }
 
-        const colonIdx = line.indexOf(':');
-        if (colonIdx === -1) {
-          currentKey = null;
-          continue;
-        }
+          const colonIdx = line.indexOf(':');
+          if (colonIdx === -1) {
+            currentKey = null;
+            continue;
+          }
 
-        currentKey = line.slice(0, colonIdx);
-        currentValue = line.slice(colonIdx + 1);
+          currentKey = line.slice(0, colonIdx);
+          currentValue = line.slice(colonIdx + 1);
 
-        // Normalize key (extract base name)
-        const baseKey = currentKey.split(';')[0];
+          const baseKey = currentKey.split(';')[0];
 
-        if (baseKey === 'BEGIN' && currentValue === 'VEVENT') {
-          currentEvent = { _lineNum: i };
-          veventCount++;
-        } else if (baseKey === 'END' && currentValue === 'VEVENT') {
-          if (currentEvent) {
-            const processed = processICSEvent(currentEvent);
-            if (processed) {
-              if (Array.isArray(processed)) {
-                events.push(...processed);
-              } else {
-                events.push(processed);
+          if (baseKey === 'BEGIN' && currentValue === 'VEVENT') {
+            currentEvent = { _lineNum: i };
+            veventCount++;
+          } else if (baseKey === 'END' && currentValue === 'VEVENT') {
+            if (currentEvent) {
+              try {
+                const processed = processICSEvent(currentEvent);
+                if (processed) {
+                  if (Array.isArray(processed)) {
+                    events.push(...processed);
+                  } else {
+                    events.push(processed);
+                  }
+                }
+              } catch (procErr) {
+                log(`Error processing event: ${procErr.message}`, 'error');
               }
             }
+            currentEvent = null;
           }
-          currentEvent = null;
         }
-      }
 
-      log(`Found ${veventCount} VEVENT blocks, parsed ${events.length} events`, events.length > 0 ? 'success' : 'warning');
-      return events;
+        log(`Found ${veventCount} VEVENT blocks, parsed ${events.length} events`, events.length > 0 ? 'success' : 'warning');
+        return events;
+      } catch (e) {
+        log(`ICS parse error: ${e.message}`, 'error');
+        return [];
+      }
     }
 
     function processICSEvent(raw) {
       try {
-        // Get all properties (case-insensitive)
         const getProp = (name) => {
           for (const key in raw) {
             if (key.toUpperCase() === name.toUpperCase() || key.toUpperCase().startsWith(name.toUpperCase() + ';')) {
@@ -807,23 +842,16 @@
           if (endDate) break;
         }
 
-        // Determine if all-day
         const isAllDay = dtstartKey && dtstartKey.toUpperCase().includes('VALUE=DATE');
 
         // Generate unique ID
-        // IMPORTANT: Use UID + RECURRENCE-ID + Start Date to ensure uniqueness
-        // This prevents duplicate events from being merged incorrectly
         let uniqueId;
         if (uid && recurrenceId) {
-          // This is a modified instance of a recurring event
           const recIdDate = parseICSDate(recurrenceId, '');
           uniqueId = `${uid}_${recIdDate ? recIdDate.getTime() : 'rec'}`;
-          log(`Event "${summary}" is a recurring instance modification`, 'info');
         } else if (uid) {
-          // Check if there might be duplicate UIDs (this happens in some Outlook exports)
           uniqueId = uid;
         } else {
-          // No UID - generate from title + date to ensure consistency
           const dateStr = startDate.toISOString().slice(0, 16);
           uniqueId = `generated_${hashString(summary + dateStr)}`;
         }
@@ -843,7 +871,6 @@
           isRecurrenceException: !!recurrenceId
         };
 
-        // Handle recurring events - expand them
         if (rrule && !recurrenceId) {
           const expanded = expandRecurring(event, rrule);
           if (expanded.length > 1) {
@@ -865,14 +892,12 @@
       if (!value) return null;
       
       try {
-        // Clean the value
         let clean = value.includes(':') ? value.split(':').pop() : value;
         const isDateOnly = key && key.toUpperCase().includes('VALUE=DATE');
         const isUTC = clean.endsWith('Z');
         
         clean = clean.replace(/Z$/, '');
 
-        // All-day: YYYYMMDD
         if (clean.length === 8 || isDateOnly) {
           return new Date(
             parseInt(clean.slice(0, 4)),
@@ -881,7 +906,6 @@
           );
         }
 
-        // DateTime: YYYYMMDDTHHMMSS
         if (clean.includes('T')) {
           const parts = clean.split('T');
           const datePart = parts[0];
@@ -907,107 +931,107 @@
     }
 
     function expandRecurring(baseEvent, rrule) {
-      // Basic recurring expansion for common patterns
-      const events = [baseEvent];
-      
-      const freqMatch = rrule.match(/FREQ=(DAILY|WEEKLY|MONTHLY|YEARLY)/i);
-      const countMatch = rrule.match(/COUNT=(\d+)/i);
-      const untilMatch = rrule.match(/UNTIL=(\d+)/i);
-      const intervalMatch = rrule.match(/INTERVAL=(\d+)/i);
+      try {
+        const events = [baseEvent];
+        
+        const freqMatch = rrule.match(/FREQ=(DAILY|WEEKLY|MONTHLY|YEARLY)/i);
+        const countMatch = rrule.match(/COUNT=(\d+)/i);
+        const intervalMatch = rrule.match(/INTERVAL=(\d+)/i);
 
-      if (!freqMatch) return events;
+        if (!freqMatch) return events;
 
-      const freq = freqMatch[1].toUpperCase();
-      const interval = intervalMatch ? parseInt(intervalMatch[1]) : 1;
-      const maxCount = countMatch ? Math.min(parseInt(countMatch[1]), 30) : 30;
+        const freq = freqMatch[1].toUpperCase();
+        const interval = intervalMatch ? parseInt(intervalMatch[1]) : 1;
+        const maxCount = countMatch ? Math.min(parseInt(countMatch[1]), 30) : 30;
 
-      const start = new Date(baseEvent.startDate);
-      const end = baseEvent.endDate ? new Date(baseEvent.endDate) : null;
-      const duration = end ? end.getTime() - start.getTime() : 3600000;
+        const start = new Date(baseEvent.startDate);
+        const end = baseEvent.endDate ? new Date(baseEvent.endDate) : null;
+        const duration = end ? end.getTime() - start.getTime() : 3600000;
 
-      let current = new Date(start);
-      
-      for (let i = 1; i < maxCount; i++) {
-        switch (freq) {
-          case 'DAILY': current.setDate(current.getDate() + interval); break;
-          case 'WEEKLY': current.setDate(current.getDate() + (7 * interval)); break;
-          case 'MONTHLY': current.setMonth(current.getMonth() + interval); break;
-          case 'YEARLY': current.setFullYear(current.getFullYear() + interval); break;
+        let current = new Date(start);
+        
+        for (let i = 1; i < maxCount; i++) {
+          switch (freq) {
+            case 'DAILY': current.setDate(current.getDate() + interval); break;
+            case 'WEEKLY': current.setDate(current.getDate() + (7 * interval)); break;
+            case 'MONTHLY': current.setMonth(current.getMonth() + interval); break;
+            case 'YEARLY': current.setFullYear(current.getFullYear() + interval); break;
+          }
+
+          if (current > new Date(Date.now() + 180 * 24 * 60 * 60 * 1000)) break;
+
+          const newStart = new Date(current);
+          const newEnd = new Date(newStart.getTime() + duration);
+
+          events.push({
+            ...baseEvent,
+            id: `${baseEvent.id}_${i}`,
+            startDate: newStart.toISOString(),
+            endDate: newEnd.toISOString()
+          });
         }
 
-        // Stop if too far in future
-        if (current > new Date(Date.now() + 180 * 24 * 60 * 60 * 1000)) break;
-
-        const newStart = new Date(current);
-        const newEnd = new Date(newStart.getTime() + duration);
-
-        events.push({
-          ...baseEvent,
-          id: `${baseEvent.id}_${i}`,
-          startDate: newStart.toISOString(),
-          endDate: newEnd.toISOString()
-        });
+        return events;
+      } catch (e) {
+        return [baseEvent];
       }
-
-      return events;
-    }
-
-    function hashString(str) {
-      let hash = 0;
-      for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
-      }
-      return Math.abs(hash).toString(36);
     }
 
     // ============================================
     // CSV PARSER
     // ============================================
     function parseCSV(content) {
-      log('Parsing CSV...', 'info');
-      const lines = content.split(/\r?\n/).filter(l => l.trim());
-      if (lines.length < 2) return [];
+      try {
+        log('Parsing CSV...', 'info');
+        const lines = content.split(/\r?\n/).filter(l => l.trim());
+        if (lines.length < 2) return [];
 
-      const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
-      const events = [];
+        const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
+        const events = [];
 
-      for (let i = 1; i < lines.length; i++) {
-        const values = parseCSVLine(lines[i]);
-        if (values.length < 2) continue;
+        for (let i = 1; i < lines.length; i++) {
+          try {
+            const values = parseCSVLine(lines[i]);
+            if (values.length < 2) continue;
 
-        const row = {};
-        headers.forEach((h, idx) => row[h] = values[idx] || '');
+            const row = {};
+            headers.forEach((h, idx) => row[h] = values[idx] || '');
 
-        const title = row.title || row.event || row.subject || row.name || 'Untitled';
-        const dateStr = row['start date'] || row.date || row.start_date || '';
-        const timeStr = row['start time'] || row.start_time || '';
-        
-        const startDate = parseCSVDate(dateStr, timeStr);
-        if (!startDate) continue;
+            const title = row.title || row.event || row.subject || row.name || 'Untitled';
+            const dateStr = row['start date'] || row.date || row.start_date || '';
+            const timeStr = row['start time'] || row.start_time || '';
+            
+            const startDate = parseCSVDate(dateStr, timeStr);
+            if (!startDate) continue;
 
-        const endDateStr = row['end date'] || row.end_date || dateStr;
-        const endTimeStr = row['end time'] || row.end_time || '';
-        const endDate = parseCSVDate(endDateStr, endTimeStr);
+            const endDateStr = row['end date'] || row.end_date || dateStr;
+            const endTimeStr = row['end time'] || row.end_time || '';
+            const endDate = parseCSVDate(endDateStr, endTimeStr);
 
-        const dateKey = startDate.toISOString().slice(0, 16);
-        
-        events.push({
-          id: `csv_${hashString(title + dateKey)}`,
-          title,
-          startDate: startDate.toISOString(),
-          endDate: endDate ? endDate.toISOString() : null,
-          location: row.location || row.room || '',
-          description: row.description || row.details || '',
-          isAllDay: !timeStr || timeStr.toLowerCase() === 'all day',
-          status: (row.status || '').toLowerCase() === 'cancelled' ? 'cancelled' : 'confirmed',
-          source: 'csv'
-        });
+            const dateKey = startDate.toISOString().slice(0, 16);
+            
+            events.push({
+              id: `csv_${hashString(title + dateKey)}`,
+              title,
+              startDate: startDate.toISOString(),
+              endDate: endDate ? endDate.toISOString() : null,
+              location: row.location || row.room || '',
+              description: row.description || row.details || '',
+              isAllDay: !timeStr || timeStr.toLowerCase() === 'all day',
+              status: (row.status || '').toLowerCase() === 'cancelled' ? 'cancelled' : 'confirmed',
+              source: 'csv'
+            });
+          } catch (rowErr) {
+            log(`CSV row ${i} error: ${rowErr.message}`, 'warning');
+          }
+        }
+
+        log(`Parsed ${events.length} CSV events`, 'success');
+        return events;
+      } catch (e) {
+        log(`CSV parse error: ${e.message}`, 'error');
+        return [];
       }
-
-      log(`Parsed ${events.length} CSV events`, 'success');
-      return events;
     }
 
     function parseCSVLine(line) {
@@ -1027,53 +1051,61 @@
     function parseCSVDate(dateStr, timeStr) {
       if (!dateStr) return null;
       
-      let date;
-      const clean = dateStr.trim();
-      
-      if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
-        date = new Date(clean);
-      } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(clean)) {
-        const p = clean.split('/');
-        date = new Date(p[2], parseInt(p[0]) - 1, p[1]);
-      } else {
-        date = new Date(clean);
-      }
-
-      if (isNaN(date.getTime())) return null;
-
-      if (timeStr && timeStr.toLowerCase() !== 'all day') {
-        const m = timeStr.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
-        if (m) {
-          let h = parseInt(m[1]);
-          if (m[3]?.toLowerCase() === 'pm' && h !== 12) h += 12;
-          if (m[3]?.toLowerCase() === 'am' && h === 12) h = 0;
-          date.setHours(h, parseInt(m[2]), 0, 0);
+      try {
+        let date;
+        const clean = dateStr.trim();
+        
+        if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+          date = new Date(clean);
+        } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(clean)) {
+          const p = clean.split('/');
+          date = new Date(p[2], parseInt(p[0]) - 1, p[1]);
+        } else {
+          date = new Date(clean);
         }
-      }
 
-      return date;
+        if (isNaN(date.getTime())) return null;
+
+        if (timeStr && timeStr.toLowerCase() !== 'all day') {
+          const m = timeStr.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+          if (m) {
+            let h = parseInt(m[1]);
+            if (m[3]?.toLowerCase() === 'pm' && h !== 12) h += 12;
+            if (m[3]?.toLowerCase() === 'am' && h === 12) h = 0;
+            date.setHours(h, parseInt(m[2]), 0, 0);
+          }
+        }
+
+        return date;
+      } catch (e) {
+        return null;
+      }
     }
 
     // ============================================
     // DATA FETCHING
     // ============================================
     async function fetchAllData() {
-      log('Fetching data...', 'info');
-      
-      if (state.settings.icsLink) await fetchICS();
-      if (state.settings.csvUrl) await fetchCSV();
-      
-      state.lastUpdate = new Date();
-      updateStatusBar();
-      renderEvents();
-      updateStats();
+      try {
+        log('Fetching data...', 'info');
+        
+        if (state.settings.icsLink) await fetchICS();
+        if (state.settings.csvUrl) await fetchCSV();
+        
+        state.lastUpdate = new Date();
+        updateStatusBar();
+        renderEvents();
+        updateStats();
+      } catch (e) {
+        log(`Fetch error: ${e.message}`, 'error');
+      }
     }
 
     async function fetchICS() {
       const url = state.settings.icsLink;
       if (!url) return;
 
-      log(`Fetching ICS from: ${url.substring(0, 50)}...`, 'info');
+      log(`Fetching ICS...`, 'info');
 
       try {
         let response;
@@ -1089,33 +1121,35 @@
         const content = await response.text();
         log(`ICS received: ${content.length} bytes`, 'info');
 
-        const events = parseICS(content).flat();
+        const events = parseICS(content);
+        const flatEvents = events.flat();
         
-        // Cache
-        localStorage.setItem(STORAGE_KEYS.icsCache, JSON.stringify({ events, time: new Date().toISOString() }));
+        localStorage.setItem(STORAGE_KEYS.icsCache, JSON.stringify({ events: flatEvents, time: new Date().toISOString() }));
         
-        // Merge - don't use ID-based merging, just replace all ICS events
         state.events = [
           ...state.events.filter(e => e.source !== 'ics'),
-          ...events
+          ...flatEvents
         ];
         
         state.isOnline = true;
-        log(`Loaded ${events.length} ICS events`, 'success');
+        log(`Loaded ${flatEvents.length} ICS events`, 'success');
 
       } catch (e) {
         log(`ICS fetch error: ${e.message}`, 'error');
         state.isOnline = false;
         
-        // Load from cache
         const cached = localStorage.getItem(STORAGE_KEYS.icsCache);
         if (cached) {
-          const data = JSON.parse(cached);
-          state.events = [
-            ...state.events.filter(e => e.source !== 'ics'),
-            ...data.events
-          ];
-          log(`Loaded ${data.events.length} events from cache`, 'warning');
+          try {
+            const data = JSON.parse(cached);
+            state.events = [
+              ...state.events.filter(e => e.source !== 'ics'),
+              ...data.events
+            ];
+            log(`Loaded ${data.events.length} events from cache`, 'warning');
+          } catch (cacheErr) {
+            log(`Cache load error: ${cacheErr.message}`, 'error');
+          }
         }
       }
     }
@@ -1154,11 +1188,15 @@
         
         const cached = localStorage.getItem(STORAGE_KEYS.csvCache);
         if (cached) {
-          const data = JSON.parse(cached);
-          state.events = [
-            ...state.events.filter(e => e.source !== 'csv'),
-            ...data.events
-          ];
+          try {
+            const data = JSON.parse(cached);
+            state.events = [
+              ...state.events.filter(e => e.source !== 'csv'),
+              ...data.events
+            ];
+          } catch (cacheErr) {
+            log(`CSV cache error: ${cacheErr.message}`, 'error');
+          }
         }
       }
     }
@@ -1198,17 +1236,18 @@
         const veventCount = (content.match(/BEGIN:VEVENT/gi) || []).length;
         log(`Found ${veventCount} VEVENT blocks`, veventCount > 0 ? 'success' : 'warning');
 
-        const events = parseICS(content).flat();
-        log(`Parsed ${events.length} events`, 'success');
+        const events = parseICS(content);
+        const flatEvents = events.flat();
+        log(`Parsed ${flatEvents.length} events`, 'success');
 
-        if (events.length > 0) {
+        if (flatEvents.length > 0) {
           log('Sample events:', 'info');
-          events.slice(0, 5).forEach((e, i) => {
+          flatEvents.slice(0, 5).forEach((e, i) => {
             log(`  ${i + 1}. "${e.title}" @ ${new Date(e.startDate).toLocaleString()}`, 'info');
           });
         }
 
-        alert(`Test Complete!\n\nVEVENTs in file: ${veventCount}\nEvents parsed: ${events.length}\n\nCheck Debug tab for details.`);
+        alert(`Test Complete!\n\nVEVENTs in file: ${veventCount}\nEvents parsed: ${flatEvents.length}\n\nCheck Debug tab for details.`);
 
       } catch (e) {
         log(`Test failed: ${e.message}`, 'error');
@@ -1220,49 +1259,59 @@
     // RENDERING
     // ============================================
     function renderEvents() {
-      const container = document.getElementById('viewContainer');
-      container.innerHTML = '';
+      try {
+        const container = document.getElementById('viewContainer');
+        if (!container) return;
+        container.innerHTML = '';
 
-      const filtered = filterEvents();
-      const sorted = filtered.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+        const filtered = filterEvents();
+        const sorted = filtered.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
 
-      switch (state.settings.viewMode) {
-        case 'week': renderWeek(container, sorted); break;
-        case 'month': renderMonth(container, sorted); break;
-        default: renderDay(container, sorted);
+        switch (state.settings.viewMode) {
+          case 'week': renderWeek(container, sorted); break;
+          case 'month': renderMonth(container, sorted); break;
+          default: renderDay(container, sorted);
+        }
+
+        const eventCountEl = document.getElementById('eventCount');
+        if (eventCountEl) eventCountEl.textContent = `${sorted.length} events`;
+      } catch (e) {
+        log(`Render error: ${e.message}`, 'error');
       }
-
-      document.getElementById('eventCount').textContent = `${sorted.length} events`;
     }
 
     function filterEvents() {
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      
-      let start, end;
-      
-      switch (state.settings.viewMode) {
-        case 'week':
-          start = new Date(today);
-          start.setDate(today.getDate() - today.getDay());
-          end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
-          break;
-        case 'month':
-          start = new Date(now.getFullYear(), now.getMonth(), 1);
-          end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-          break;
-        default:
-          start = today;
-          end = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-      }
+      try {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        let start, end;
+        
+        switch (state.settings.viewMode) {
+          case 'week':
+            start = new Date(today);
+            start.setDate(today.getDate() - today.getDay());
+            end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+            break;
+          case 'month':
+            start = new Date(now.getFullYear(), now.getMonth(), 1);
+            end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+            break;
+          default:
+            start = today;
+            end = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+        }
 
-      const all = [...state.events, ...state.manualEntries];
-      
-      return all.filter(e => {
-        const es = new Date(e.startDate);
-        const ee = e.endDate ? new Date(e.endDate) : es;
-        return (es >= start && es < end) || (ee >= start && ee < end) || (es <= start && ee >= end);
-      });
+        const all = [...state.events, ...state.manualEntries];
+        
+        return all.filter(e => {
+          const es = new Date(e.startDate);
+          const ee = e.endDate ? new Date(e.endDate) : es;
+          return (es >= start && es < end) || (ee >= start && ee < end) || (es <= start && ee >= end);
+        });
+      } catch (e) {
+        return [];
+      }
     }
 
     function renderDay(container, events) {
@@ -1311,12 +1360,14 @@
       table.appendChild(tbody);
       container.appendChild(table);
       
-      if (state.settings.movementEnabled && state.settings.transitionStyle === 'autoScroll' && events.length > 5) {
-        const scroller = document.getElementById('scrollContainer');
-        scroller.style.setProperty('--scroll-duration', `${Math.max(40, events.length * 4)}s`);
-        scroller.classList.add('auto-scroll');
-      } else {
-        document.getElementById('scrollContainer').classList.remove('auto-scroll');
+      const scroller = document.getElementById('scrollContainer');
+      if (scroller) {
+        if (state.settings.movementEnabled && state.settings.transitionStyle === 'autoScroll' && events.length > 5) {
+          scroller.style.setProperty('--scroll-duration', `${Math.max(40, events.length * 4)}s`);
+          scroller.classList.add('auto-scroll');
+        } else {
+          scroller.classList.remove('auto-scroll');
+        }
       }
     }
 
@@ -1419,62 +1470,66 @@
     }
 
     function getEventStatus(e) {
-      if (e.status === 'cancelled') return 'cancelled';
-      
-      const now = new Date();
-      const start = new Date(e.startDate);
-      const end = e.endDate ? new Date(e.endDate) : new Date(start.getTime() + 3600000);
-      
-      if (e.isAllDay) {
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const eventDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-        if (eventDay.getTime() === today.getTime()) return 'ongoing';
-        return eventDay < today ? 'completed' : 'upcoming';
+      try {
+        if (e.status === 'cancelled') return 'cancelled';
+        
+        const now = new Date();
+        const start = new Date(e.startDate);
+        const end = e.endDate ? new Date(e.endDate) : new Date(start.getTime() + 3600000);
+        
+        if (e.isAllDay) {
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const eventDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+          if (eventDay.getTime() === today.getTime()) return 'ongoing';
+          return eventDay < today ? 'completed' : 'upcoming';
+        }
+        
+        if (now < start) return 'upcoming';
+        if (now >= start && now <= end) return 'ongoing';
+        return 'completed';
+      } catch (e) {
+        return 'upcoming';
       }
-      
-      if (now < start) return 'upcoming';
-      if (now >= start && now <= end) return 'ongoing';
-      return 'completed';
-    }
-
-    function formatTime(d) {
-      return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    }
-
-    function escapeHtml(t) {
-      const d = document.createElement('div');
-      d.textContent = t;
-      return d.innerHTML;
     }
 
     // ============================================
     // UTILITIES
     // ============================================
     function updateDateTime() {
-      const now = new Date();
-      document.getElementById('dateDisplay').textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-      document.getElementById('timeDisplay').textContent = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      try {
+        const now = new Date();
+        const dateEl = document.getElementById('dateDisplay');
+        const timeEl = document.getElementById('timeDisplay');
+        if (dateEl) dateEl.textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        if (timeEl) timeEl.textContent = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      } catch (e) {}
     }
 
     function updateStatusBar() {
-      const ind = document.getElementById('onlineIndicator');
-      const txt = document.getElementById('statusText');
-      
-      if (state.isOnline) {
-        ind.classList.remove('offline');
-        txt.textContent = `Online - Updated: ${formatTime(state.lastUpdate || new Date())}`;
-      } else {
-        ind.classList.add('offline');
-        txt.textContent = 'Offline - Showing cached data';
-      }
+      try {
+        const ind = document.getElementById('onlineIndicator');
+        const txt = document.getElementById('statusText');
+        
+        if (ind && txt) {
+          if (state.isOnline) {
+            ind.classList.remove('offline');
+            txt.textContent = `Online - Updated: ${formatTime(state.lastUpdate || new Date())}`;
+          } else {
+            ind.classList.add('offline');
+            txt.textContent = 'Offline - Showing cached data';
+          }
+        }
+      } catch (e) {}
     }
 
     function applyColors() {
-      const r = document.documentElement;
-      r.style.setProperty('--upcoming', state.settings.colors.upcoming);
-      r.style.setProperty('--ongoing', state.settings.colors.ongoing);
-      r.style.setProperty('--completed', state.settings.colors.completed);
-      r.style.setProperty('--cancelled', state.settings.colors.cancelled);
+      try {
+        const r = document.documentElement;
+        r.style.setProperty('--upcoming', state.settings.colors.upcoming);
+        r.style.setProperty('--ongoing', state.settings.colors.ongoing);
+        r.style.setProperty('--completed', state.settings.colors.completed);
+        r.style.setProperty('--cancelled', state.settings.colors.cancelled);
+      } catch (e) {}
     }
 
     // ============================================
@@ -1494,10 +1549,16 @@
         if (m) state.manualEntries = JSON.parse(m);
 
         const ic = localStorage.getItem(STORAGE_KEYS.icsCache);
-        if (ic) state.events = [...state.events, ...JSON.parse(ic).events];
+        if (ic) {
+          const data = JSON.parse(ic);
+          if (data.events) state.events = [...state.events, ...data.events];
+        }
 
         const cc = localStorage.getItem(STORAGE_KEYS.csvCache);
-        if (cc) state.events = [...state.events, ...JSON.parse(cc).events];
+        if (cc) {
+          const data = JSON.parse(cc);
+          if (data.events) state.events = [...state.events, ...data.events];
+        }
 
         log('Loaded settings from storage', 'success');
       } catch (e) {
@@ -1518,340 +1579,452 @@
     }
 
     function updateSettingsUI() {
-      document.getElementById('icsLink').value = state.settings.icsLink || '';
-      document.getElementById('csvUrl').value = state.settings.csvUrl || '';
-      document.getElementById('viewMode').value = state.settings.viewMode;
-      document.getElementById('transitionStyle').value = state.settings.transitionStyle;
-      document.getElementById('refreshInterval').value = state.settings.refreshInterval;
-      document.getElementById('pinSetting').value = state.settings.pin || '';
-      document.getElementById('dateFormat').value = state.settings.dateFormat;
-      document.getElementById('showSourceBadge').checked = state.settings.showSourceBadge;
-      document.getElementById('showUid').checked = state.settings.showUid;
-      
-      document.getElementById('colorUpcoming').value = state.settings.colors.upcoming;
-      document.getElementById('colorOngoing').value = state.settings.colors.ongoing;
-      document.getElementById('colorCompleted').value = state.settings.colors.completed;
-      document.getElementById('colorCancelled').value = state.settings.colors.cancelled;
+      try {
+        const icsEl = document.getElementById('icsLink');
+        const csvEl = document.getElementById('csvUrl');
+        const viewModeEl = document.getElementById('viewMode');
+        const transStyleEl = document.getElementById('transitionStyle');
+        const refreshEl = document.getElementById('refreshInterval');
+        const pinEl = document.getElementById('pinSetting');
+        const dateFormatEl = document.getElementById('dateFormat');
+        const showBadgeEl = document.getElementById('showSourceBadge');
+        const showUidEl = document.getElementById('showUid');
+        const colorUpcomingEl = document.getElementById('colorUpcoming');
+        const colorOngoingEl = document.getElementById('colorOngoing');
+        const colorCompletedEl = document.getElementById('colorCompleted');
+        const colorCancelledEl = document.getElementById('colorCancelled');
 
-      document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === state.settings.viewMode));
-      
-      const onBtn = document.getElementById('movementOn');
-      const offBtn = document.getElementById('movementOff');
-      if (state.settings.movementEnabled) {
-        onBtn.classList.add('bg-[var(--accent)]', 'text-[var(--bg)]');
-        onBtn.classList.remove('bg-[var(--bg-card)]');
-        offBtn.classList.remove('bg-[var(--accent)]', 'text-[var(--bg)]');
-        offBtn.classList.add('bg-[var(--bg-card)]');
-      } else {
-        offBtn.classList.add('bg-[var(--accent)]', 'text-[var(--bg)]');
-        offBtn.classList.remove('bg-[var(--bg-card)]');
-        onBtn.classList.remove('bg-[var(--accent)]', 'text-[var(--bg)]');
-        onBtn.classList.add('bg-[var(--bg-card)]');
+        if (icsEl) icsEl.value = state.settings.icsLink || '';
+        if (csvEl) csvEl.value = state.settings.csvUrl || '';
+        if (viewModeEl) viewModeEl.value = state.settings.viewMode;
+        if (transStyleEl) transStyleEl.value = state.settings.transitionStyle;
+        if (refreshEl) refreshEl.value = state.settings.refreshInterval;
+        if (pinEl) pinEl.value = state.settings.pin || '';
+        if (dateFormatEl) dateFormatEl.value = state.settings.dateFormat;
+        if (showBadgeEl) showBadgeEl.checked = state.settings.showSourceBadge;
+        if (showUidEl) showUidEl.checked = state.settings.showUid;
+        
+        if (colorUpcomingEl) colorUpcomingEl.value = state.settings.colors.upcoming;
+        if (colorOngoingEl) colorOngoingEl.value = state.settings.colors.ongoing;
+        if (colorCompletedEl) colorCompletedEl.value = state.settings.colors.completed;
+        if (colorCancelledEl) colorCancelledEl.value = state.settings.colors.cancelled;
+
+        document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === state.settings.viewMode));
+        
+        const onBtn = document.getElementById('movementOn');
+        const offBtn = document.getElementById('movementOff');
+        if (onBtn && offBtn) {
+          if (state.settings.movementEnabled) {
+            onBtn.classList.add('bg-[var(--accent)]', 'text-[var(--bg)]');
+            onBtn.classList.remove('bg-[var(--bg-card)]');
+            offBtn.classList.remove('bg-[var(--accent)]', 'text-[var(--bg)]');
+            offBtn.classList.add('bg-[var(--bg-card)]');
+          } else {
+            offBtn.classList.add('bg-[var(--accent)]', 'text-[var(--bg)]');
+            offBtn.classList.remove('bg-[var(--bg-card)]');
+            onBtn.classList.remove('bg-[var(--accent)]', 'text-[var(--bg)]');
+            onBtn.classList.add('bg-[var(--bg-card)]');
+          }
+        }
+
+        renderManualEntries();
+        updateStats();
+      } catch (e) {
+        log(`updateSettingsUI error: ${e.message}`, 'error');
       }
-
-      renderManualEntries();
-      updateStats();
     }
 
     function renderManualEntries() {
-      const el = document.getElementById('entriesList');
-      if (state.manualEntries.length === 0) {
-        el.innerHTML = '<p class="text-[var(--fg-muted)] text-sm">No manual entries</p>';
-        return;
-      }
-      
-      el.innerHTML = state.manualEntries.map((e, i) => `
-        <div class="entry-card flex items-start justify-between gap-4">
-          <div class="flex-1 min-w-0">
-            <h5 class="font-medium truncate">${escapeHtml(e.title)}</h5>
-            <p class="text-sm text-[var(--fg-muted)]">${new Date(e.startDate).toLocaleDateString()} ${e.isAllDay ? '' : formatTime(new Date(e.startDate))}</p>
+      try {
+        const el = document.getElementById('entriesList');
+        if (!el) return;
+
+        if (state.manualEntries.length === 0) {
+          el.innerHTML = '<p class="text-[var(--fg-muted)] text-sm">No manual entries</p>';
+          return;
+        }
+        
+        el.innerHTML = state.manualEntries.map((e, i) => `
+          <div class="entry-card flex items-start justify-between gap-4">
+            <div class="flex-1 min-w-0">
+              <h5 class="font-medium truncate">${escapeHtml(e.title)}</h5>
+              <p class="text-sm text-[var(--fg-muted)]">${new Date(e.startDate).toLocaleDateString()} ${e.isAllDay ? '' : formatTime(new Date(e.startDate))}</p>
+            </div>
+            <button class="text-[var(--completed)] hover:text-red-400 p-2" onclick="removeEntry(${i})">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+            </button>
           </div>
-          <button class="text-[var(--completed)] hover:text-red-400 p-2" onclick="removeEntry(${i})">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"></path></svg>
-          </button>
-        </div>
-      `).join('');
+        `).join('');
+      } catch (e) {
+        log(`renderManualEntries error: ${e.message}`, 'error');
+      }
     }
 
     // ============================================
     // EVENT LISTENERS
     // ============================================
     function setupEventListeners() {
-      document.getElementById('gearBtn').addEventListener('click', () => {
-        if (state.settings.pin) {
-          document.getElementById('pinModal').classList.add('open');
-          document.getElementById('pinInput').focus();
-        } else {
-          openSettings();
+      try {
+        const gearBtn = document.getElementById('gearBtn');
+        if (gearBtn) {
+          gearBtn.addEventListener('click', () => {
+            if (state.settings.pin) {
+              document.getElementById('pinModal').classList.add('open');
+              document.getElementById('pinInput').focus();
+            } else {
+              openSettings();
+            }
+          });
         }
-      });
 
-      document.getElementById('pinCancel').addEventListener('click', () => {
-        document.getElementById('pinModal').classList.remove('open');
-        document.getElementById('pinInput').value = '';
-        document.getElementById('pinError').classList.add('hidden');
-      });
-
-      document.getElementById('pinSubmit').addEventListener('click', () => {
-        if (document.getElementById('pinInput').value === state.settings.pin) {
-          document.getElementById('pinModal').classList.remove('open');
-          document.getElementById('pinInput').value = '';
-          openSettings();
-        } else {
-          document.getElementById('pinError').classList.remove('hidden');
-          document.getElementById('pinInput').value = '';
-          document.getElementById('pinInput').focus();
-        }
-      });
-
-      document.getElementById('pinInput').addEventListener('keypress', e => {
-        if (e.key === 'Enter') document.getElementById('pinSubmit').click();
-      });
-
-      document.getElementById('closeSettings').addEventListener('click', closeSettings);
-      document.getElementById('settingsOverlay').addEventListener('click', closeSettings);
-
-      document.querySelectorAll('[data-tab]').forEach(b => {
-        b.addEventListener('click', () => {
-          document.querySelectorAll('[data-tab]').forEach(x => x.classList.remove('active'));
-          b.classList.add('active');
-          document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-          document.getElementById(`tab-${b.dataset.tab}`).classList.remove('hidden');
-        });
-      });
-
-      document.querySelectorAll('[data-view]').forEach(b => {
-        b.addEventListener('click', () => {
-          state.settings.viewMode = b.dataset.view;
-          updateSettingsUI();
-          renderEvents();
-        });
-      });
-
-      document.getElementById('movementOn').addEventListener('click', () => {
-        state.settings.movementEnabled = true;
-        updateSettingsUI();
-      });
-
-      document.getElementById('movementOff').addEventListener('click', () => {
-        state.settings.movementEnabled = false;
-        updateSettingsUI();
-      });
-
-      document.getElementById('testIcsBtn').addEventListener('click', testICSLink);
-      document.getElementById('refreshData').addEventListener('click', fetchAllData);
-      document.getElementById('addEntry').addEventListener('click', addManualEntry);
-      
-      document.getElementById('csvFile').addEventListener('change', e => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = ev => {
-          const events = parseCSV(ev.target.result);
-          localStorage.setItem(STORAGE_KEYS.csvCache, JSON.stringify({ events, time: new Date().toISOString() }));
-          state.events = [...state.events.filter(x => x.source !== 'csv'), ...events];
-          renderEvents();
-          updateStats();
-        };
-        reader.readAsText(file);
-      });
-
-      document.getElementById('saveSettings').addEventListener('click', () => {
-        state.settings.icsLink = document.getElementById('icsLink').value.trim();
-        state.settings.csvUrl = document.getElementById('csvUrl').value.trim();
-        state.settings.viewMode = document.getElementById('viewMode').value;
-        state.settings.transitionStyle = document.getElementById('transitionStyle').value;
-        state.settings.refreshInterval = document.getElementById('refreshInterval').value;
-        state.settings.pin = document.getElementById('pinSetting').value.trim();
-        state.settings.dateFormat = document.getElementById('dateFormat').value;
-        state.settings.showSourceBadge = document.getElementById('showSourceBadge').checked;
-        state.settings.showUid = document.getElementById('showUid').checked;
-        
-        state.settings.colors.upcoming = document.getElementById('colorUpcoming').value;
-        state.settings.colors.ongoing = document.getElementById('colorOngoing').value;
-        state.settings.colors.completed = document.getElementById('colorCompleted').value;
-        state.settings.colors.cancelled = document.getElementById('colorCancelled').value;
-
-        saveToStorage();
-        applyColors();
-        startAutoRefresh();
-        fetchAllData();
-        closeSettings();
-      });
-
-      document.getElementById('clearDebugLog').addEventListener('click', () => {
-        state.debugLog = [];
-        updateDebugUI();
-      });
-
-      document.getElementById('clearAllCache').addEventListener('click', () => {
-        localStorage.removeItem(STORAGE_KEYS.icsCache);
-        localStorage.removeItem(STORAGE_KEYS.csvCache);
-        state.events = [];
-        log('Cache cleared', 'warning');
-        renderEvents();
-        updateStats();
-        alert('Cache cleared. Click "Refresh Now" to reload.');
-      });
-
-      document.getElementById('exportDebugInfo').addEventListener('click', () => {
-        const info = {
-          time: new Date().toISOString(),
-          counts: {
-            total: state.events.length + state.manualEntries.length,
-            ics: state.events.filter(e => e.source === 'ics').length,
-            csv: state.events.filter(e => e.source === 'csv').length,
-            manual: state.manualEntries.length
-          },
-          events: [...state.events, ...state.manualEntries].map(e => ({
-            title: e.title,
-            start: e.startDate,
-            end: e.endDate,
-            source: e.source,
-            uid: e.uid || null
-          })),
-          log: state.debugLog.slice(0, 30)
-        };
-        
-        const blob = new Blob([JSON.stringify(info, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `calendar-debug-${Date.now()}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-        log('Debug exported', 'success');
-      });
-
-      window.addEventListener('online', () => { state.isOnline = true; fetchAllData(); });
-      window.addEventListener('offline', () => { state.isOnline = false; updateStatusBar(); });
-
-      document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') {
-          if (document.getElementById('settingsPanel').classList.contains('open')) closeSettings();
-          if (document.getElementById('pinModal').classList.contains('open')) {
+        const pinCancel = document.getElementById('pinCancel');
+        if (pinCancel) {
+          pinCancel.addEventListener('click', () => {
             document.getElementById('pinModal').classList.remove('open');
-          }
+            document.getElementById('pinInput').value = '';
+            document.getElementById('pinError').classList.add('hidden');
+          });
         }
-      });
 
-      document.addEventListener('mousemove', () => {
-        document.body.classList.remove('cursor-hidden');
-        clearTimeout(state.cursorTimeout);
-        state.cursorTimeout = setTimeout(() => {
-          if (!document.getElementById('settingsPanel').classList.contains('open')) {
-            document.body.classList.add('cursor-hidden');
+        const pinSubmit = document.getElementById('pinSubmit');
+        if (pinSubmit) {
+          pinSubmit.addEventListener('click', () => {
+            if (document.getElementById('pinInput').value === state.settings.pin) {
+              document.getElementById('pinModal').classList.remove('open');
+              document.getElementById('pinInput').value = '';
+              openSettings();
+            } else {
+              document.getElementById('pinError').classList.remove('hidden');
+              document.getElementById('pinInput').value = '';
+              document.getElementById('pinInput').focus();
+            }
+          });
+        }
+
+        const pinInput = document.getElementById('pinInput');
+        if (pinInput) {
+          pinInput.addEventListener('keypress', e => {
+            if (e.key === 'Enter') document.getElementById('pinSubmit').click();
+          });
+        }
+
+        const closeSettings = document.getElementById('closeSettings');
+        if (closeSettings) closeSettings.addEventListener('click', closeSettingsPanel);
+
+        const overlay = document.getElementById('settingsOverlay');
+        if (overlay) overlay.addEventListener('click', closeSettingsPanel);
+
+        document.querySelectorAll('[data-tab]').forEach(b => {
+          b.addEventListener('click', () => {
+            document.querySelectorAll('[data-tab]').forEach(x => x.classList.remove('active'));
+            b.classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            const tabContent = document.getElementById(`tab-${b.dataset.tab}`);
+            if (tabContent) tabContent.classList.remove('hidden');
+          });
+        });
+
+        document.querySelectorAll('[data-view]').forEach(b => {
+          b.addEventListener('click', () => {
+            state.settings.viewMode = b.dataset.view;
+            updateSettingsUI();
+            renderEvents();
+          });
+        });
+
+        const movementOn = document.getElementById('movementOn');
+        if (movementOn) {
+          movementOn.addEventListener('click', () => {
+            state.settings.movementEnabled = true;
+            updateSettingsUI();
+          });
+        }
+
+        const movementOff = document.getElementById('movementOff');
+        if (movementOff) {
+          movementOff.addEventListener('click', () => {
+            state.settings.movementEnabled = false;
+            updateSettingsUI();
+          });
+        }
+
+        const testIcsBtn = document.getElementById('testIcsBtn');
+        if (testIcsBtn) testIcsBtn.addEventListener('click', testICSLink);
+
+        const refreshData = document.getElementById('refreshData');
+        if (refreshData) refreshData.addEventListener('click', fetchAllData);
+
+        const addEntry = document.getElementById('addEntry');
+        if (addEntry) addEntry.addEventListener('click', addManualEntry);
+        
+        const csvFile = document.getElementById('csvFile');
+        if (csvFile) {
+          csvFile.addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+              const events = parseCSV(ev.target.result);
+              localStorage.setItem(STORAGE_KEYS.csvCache, JSON.stringify({ events, time: new Date().toISOString() }));
+              state.events = [...state.events.filter(x => x.source !== 'csv'), ...events];
+              renderEvents();
+              updateStats();
+            };
+            reader.readAsText(file);
+          });
+        }
+
+        const saveSettingsBtn = document.getElementById('saveSettings');
+        if (saveSettingsBtn) {
+          saveSettingsBtn.addEventListener('click', () => {
+            const icsLinkEl = document.getElementById('icsLink');
+            const csvUrlEl = document.getElementById('csvUrl');
+            const viewModeEl = document.getElementById('viewMode');
+            const transStyleEl = document.getElementById('transitionStyle');
+            const refreshEl = document.getElementById('refreshInterval');
+            const pinEl = document.getElementById('pinSetting');
+            const dateFormatEl = document.getElementById('dateFormat');
+            const showBadgeEl = document.getElementById('showSourceBadge');
+            const showUidEl = document.getElementById('showUid');
+            const colorUpcomingEl = document.getElementById('colorUpcoming');
+            const colorOngoingEl = document.getElementById('colorOngoing');
+            const colorCompletedEl = document.getElementById('colorCompleted');
+            const colorCancelledEl = document.getElementById('colorCancelled');
+
+            if (icsLinkEl) state.settings.icsLink = icsLinkEl.value.trim();
+            if (csvUrlEl) state.settings.csvUrl = csvUrlEl.value.trim();
+            if (viewModeEl) state.settings.viewMode = viewModeEl.value;
+            if (transStyleEl) state.settings.transitionStyle = transStyleEl.value;
+            if (refreshEl) state.settings.refreshInterval = refreshEl.value;
+            if (pinEl) state.settings.pin = pinEl.value.trim();
+            if (dateFormatEl) state.settings.dateFormat = dateFormatEl.value;
+            if (showBadgeEl) state.settings.showSourceBadge = showBadgeEl.checked;
+            if (showUidEl) state.settings.showUid = showUidEl.checked;
+            
+            if (colorUpcomingEl) state.settings.colors.upcoming = colorUpcomingEl.value;
+            if (colorOngoingEl) state.settings.colors.ongoing = colorOngoingEl.value;
+            if (colorCompletedEl) state.settings.colors.completed = colorCompletedEl.value;
+            if (colorCancelledEl) state.settings.colors.cancelled = colorCancelledEl.value;
+
+            saveToStorage();
+            applyColors();
+            startAutoRefresh();
+            fetchAllData();
+            closeSettingsPanel();
+          });
+        }
+
+        const clearDebugLog = document.getElementById('clearDebugLog');
+        if (clearDebugLog) {
+          clearDebugLog.addEventListener('click', () => {
+            state.debugLog = [];
+            updateDebugUI();
+          });
+        }
+
+        const clearAllCache = document.getElementById('clearAllCache');
+        if (clearAllCache) {
+          clearAllCache.addEventListener('click', () => {
+            localStorage.removeItem(STORAGE_KEYS.icsCache);
+            localStorage.removeItem(STORAGE_KEYS.csvCache);
+            state.events = [];
+            log('Cache cleared', 'warning');
+            renderEvents();
+            updateStats();
+            alert('Cache cleared. Click "Refresh Now" to reload.');
+          });
+        }
+
+        const exportDebugInfo = document.getElementById('exportDebugInfo');
+        if (exportDebugInfo) {
+          exportDebugInfo.addEventListener('click', () => {
+            const info = {
+              time: new Date().toISOString(),
+              counts: {
+                total: state.events.length + state.manualEntries.length,
+                ics: state.events.filter(e => e.source === 'ics').length,
+                csv: state.events.filter(e => e.source === 'csv').length,
+                manual: state.manualEntries.length
+              },
+              events: [...state.events, ...state.manualEntries].map(e => ({
+                title: e.title,
+                start: e.startDate,
+                end: e.endDate,
+                source: e.source,
+                uid: e.uid || null
+              })),
+              log: state.debugLog.slice(0, 30)
+            };
+            
+            const blob = new Blob([JSON.stringify(info, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `calendar-debug-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            log('Debug exported', 'success');
+          });
+        }
+
+        window.addEventListener('online', () => { state.isOnline = true; fetchAllData(); });
+        window.addEventListener('offline', () => { state.isOnline = false; updateStatusBar(); });
+
+        document.addEventListener('keydown', e => {
+          if (e.key === 'Escape') {
+            if (document.getElementById('settingsPanel').classList.contains('open')) closeSettingsPanel();
+            if (document.getElementById('pinModal').classList.contains('open')) {
+              document.getElementById('pinModal').classList.remove('open');
+            }
           }
-        }, 3000);
-      });
+        });
+
+        document.addEventListener('mousemove', () => {
+          document.body.classList.remove('cursor-hidden');
+          clearTimeout(state.cursorTimeout);
+          state.cursorTimeout = setTimeout(() => {
+            if (!document.getElementById('settingsPanel').classList.contains('open')) {
+              document.body.classList.add('cursor-hidden');
+            }
+          }, 3000);
+        });
+      } catch (e) {
+        console.error('setupEventListeners error:', e);
+      }
     }
 
     function openSettings() {
-      document.getElementById('settingsPanel').classList.add('open');
-      document.getElementById('settingsOverlay').classList.add('open');
+      const panel = document.getElementById('settingsPanel');
+      const overlay = document.getElementById('settingsOverlay');
+      if (panel) panel.classList.add('open');
+      if (overlay) overlay.classList.add('open');
       document.body.classList.remove('cursor-hidden');
     }
 
-    function closeSettings() {
-      document.getElementById('settingsPanel').classList.remove('open');
-      document.getElementById('settingsOverlay').classList.remove('open');
+    function closeSettingsPanel() {
+      const panel = document.getElementById('settingsPanel');
+      const overlay = document.getElementById('settingsOverlay');
+      if (panel) panel.classList.remove('open');
+      if (overlay) overlay.classList.remove('open');
     }
 
     function addManualEntry() {
-      const title = document.getElementById('entryTitle').value.trim();
-      const date = document.getElementById('entryDate').value;
-      
-      if (!title || !date) {
-        alert('Title and date required');
-        return;
+      try {
+        const titleEl = document.getElementById('entryTitle');
+        const dateEl = document.getElementById('entryDate');
+        
+        const title = titleEl ? titleEl.value.trim() : '';
+        const date = dateEl ? dateEl.value : '';
+        
+        if (!title || !date) {
+          alert('Title and date required');
+          return;
+        }
+
+        const startTimeEl = document.getElementById('entryStartTime');
+        const endTimeEl = document.getElementById('entryEndTime');
+        const locationEl = document.getElementById('entryLocation');
+        const descriptionEl = document.getElementById('entryDescription');
+        
+        const startTime = startTimeEl ? startTimeEl.value : '';
+        const endTime = endTimeEl ? endTimeEl.value : '';
+        
+        const startDate = new Date(date);
+        if (startTime) {
+          const [h, m] = startTime.split(':');
+          startDate.setHours(parseInt(h), parseInt(m));
+        }
+
+        let endDate = null;
+        if (endTime) {
+          endDate = new Date(date);
+          const [h, m] = endTime.split(':');
+          endDate.setHours(parseInt(h), parseInt(m));
+        }
+
+        state.manualEntries.push({
+          id: `manual_${Date.now()}`,
+          title,
+          startDate: startDate.toISOString(),
+          endDate: endDate ? endDate.toISOString() : null,
+          location: locationEl ? locationEl.value.trim() : '',
+          description: descriptionEl ? descriptionEl.value.trim() : '',
+          isAllDay: !startTime,
+          status: 'confirmed',
+          source: 'manual'
+        });
+
+        saveToStorage();
+        renderManualEntries();
+        renderEvents();
+        updateStats();
+        log(`Added: "${title}"`, 'success');
+
+        if (titleEl) titleEl.value = '';
+        if (dateEl) dateEl.value = '';
+        if (startTimeEl) startTimeEl.value = '';
+        if (endTimeEl) endTimeEl.value = '';
+        if (locationEl) locationEl.value = '';
+        if (descriptionEl) descriptionEl.value = '';
+      } catch (e) {
+        log(`addManualEntry error: ${e.message}`, 'error');
       }
-
-      const startTime = document.getElementById('entryStartTime').value;
-      const endTime = document.getElementById('entryEndTime').value;
-      
-      const startDate = new Date(date);
-      if (startTime) {
-        const [h, m] = startTime.split(':');
-        startDate.setHours(parseInt(h), parseInt(m));
-      }
-
-      let endDate = null;
-      if (endTime) {
-        endDate = new Date(date);
-        const [h, m] = endTime.split(':');
-        endDate.setHours(parseInt(h), parseInt(m));
-      }
-
-      state.manualEntries.push({
-        id: `manual_${Date.now()}`,
-        title,
-        startDate: startDate.toISOString(),
-        endDate: endDate ? endDate.toISOString() : null,
-        location: document.getElementById('entryLocation').value.trim(),
-        description: document.getElementById('entryDescription').value.trim(),
-        isAllDay: !startTime,
-        status: 'confirmed',
-        source: 'manual'
-      });
-
-      saveToStorage();
-      renderManualEntries();
-      renderEvents();
-      updateStats();
-      log(`Added: "${title}"`, 'success');
-
-      document.getElementById('entryTitle').value = '';
-      document.getElementById('entryDate').value = '';
-      document.getElementById('entryStartTime').value = '';
-      document.getElementById('entryEndTime').value = '';
-      document.getElementById('entryLocation').value = '';
-      document.getElementById('entryDescription').value = '';
     }
 
     window.removeEntry = function(i) {
-      const e = state.manualEntries[i];
-      state.manualEntries.splice(i, 1);
-      saveToStorage();
-      renderManualEntries();
-      renderEvents();
-      updateStats();
-      log(`Removed: "${e.title}"`, 'info');
+      try {
+        const e = state.manualEntries[i];
+        state.manualEntries.splice(i, 1);
+        saveToStorage();
+        renderManualEntries();
+        renderEvents();
+        updateStats();
+        log(`Removed: "${e.title}"`, 'info');
+      } catch (err) {
+        log(`removeEntry error: ${err.message}`, 'error');
+      }
     };
 
-    let refreshTimer = null;
-    let countdownTimer = null;
-
     function startAutoRefresh() {
-      if (refreshTimer) clearInterval(refreshTimer);
-      if (countdownTimer) clearInterval(countdownTimer);
-      
-      const interval = parseInt(state.settings.refreshInterval);
-      let countdown = interval;
+      try {
+        if (state.refreshTimer) clearInterval(state.refreshTimer);
+        if (state.countdownTimer) clearInterval(state.countdownTimer);
+        
+        const interval = parseInt(state.settings.refreshInterval) || 60;
+        let countdown = interval;
 
-      refreshTimer = setInterval(fetchAllData, interval * 1000);
-      countdownTimer = setInterval(() => {
-        countdown--;
-        if (countdown < 0) countdown = interval;
-        document.getElementById('nextRefresh').textContent = `Next: ${countdown}s`;
-      }, 1000);
+        state.refreshTimer = setInterval(fetchAllData, interval * 1000);
+        state.countdownTimer = setInterval(() => {
+          countdown--;
+          if (countdown < 0) countdown = interval;
+          const nextRefreshEl = document.getElementById('nextRefresh');
+          if (nextRefreshEl) nextRefreshEl.textContent = `Next: ${countdown}s`;
+        }, 1000);
+      } catch (e) {
+        log(`startAutoRefresh error: ${e.message}`, 'error');
+      }
     }
 
     // ============================================
     // INIT
     // ============================================
     function init() {
-      loadFromStorage();
-      applyColors();
-      renderEvents();
-      updateDateTime();
-      setInterval(updateDateTime, 1000);
-      setInterval(renderEvents, 60000);
-      setupEventListeners();
-      startAutoRefresh();
-      log('System initialized', 'success');
-      
-      if (state.settings.icsLink || state.settings.csvUrl) {
-        fetchAllData();
+      try {
+        loadFromStorage();
+        applyColors();
+        renderEvents();
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+        setInterval(renderEvents, 60000);
+        setupEventListeners();
+        startAutoRefresh();
+        log('System initialized', 'success');
+        
+        if (state.settings.icsLink || state.settings.csvUrl) {
+          fetchAllData();
+        }
+      } catch (e) {
+        console.error('Init error:', e);
       }
     }
 
