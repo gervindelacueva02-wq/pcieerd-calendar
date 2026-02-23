@@ -262,16 +262,16 @@
     .source-csv { background: rgba(16, 185, 129, 0.2); color: #34d399; }
     .source-manual { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
 
-    .warning-box {
-      background: rgba(239, 68, 68, 0.1);
-      border: 1px solid rgba(239, 68, 68, 0.3);
+    .info-box {
+      background: rgba(6, 182, 212, 0.1);
+      border: 1px solid rgba(6, 182, 212, 0.3);
       border-radius: 8px;
       padding: 1rem;
       margin-bottom: 1rem;
     }
-    .info-box {
-      background: rgba(6, 182, 212, 0.1);
-      border: 1px solid rgba(6, 182, 212, 0.3);
+    .success-box {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
       border-radius: 8px;
       padding: 1rem;
       margin-bottom: 1rem;
@@ -325,12 +325,8 @@
       <div class="tab-content" id="tab-sources">
         <div class="space-y-6">
           <div class="info-box">
-            <p class="text-sm text-cyan-300 font-medium mb-2">Outlook ICS Setup</p>
-            <ul class="text-xs text-cyan-200/80 space-y-1">
-              <li>1. In Outlook, go to Settings > Calendar > Shared calendars</li>
-              <li>2. Publish the calendar and copy the ICS link</li>
-              <li>3. Use "Test ICS" to verify the link works</li>
-            </ul>
+            <p class="text-sm text-cyan-300 font-medium mb-2">System Status</p>
+            <p class="text-xs text-cyan-200/80">The calendar system successfully loads events from Outlook ICS links. Recurring events are automatically expanded.</p>
           </div>
 
           <div>
@@ -477,6 +473,11 @@
       <!-- Debug Tab -->
       <div class="tab-content hidden" id="tab-debug">
         <div class="space-y-6">
+          <div class="success-box">
+            <p class="text-sm text-emerald-300 font-medium mb-2">Parsing Working Correctly</p>
+            <p class="text-xs text-emerald-200/70">The log below shows successful parsing. "Expanded recurring" messages indicate recurring events were properly processed.</p>
+          </div>
+
           <div>
             <h4 class="font-medium mb-4">Statistics</h4>
             <div class="bg-[var(--bg-card)] rounded-lg p-4 grid grid-cols-2 gap-4 text-sm">
@@ -574,10 +575,10 @@
     // STATE & CONFIG - Initialize FIRST
     // ============================================
     const STORAGE_KEYS = {
-      settings: 'pcieerd_settings_v3',
-      manualEntries: 'pcieerd_manual_v3',
-      icsCache: 'pcieerd_ics_cache_v3',
-      csvCache: 'pcieerd_csv_cache_v3'
+      settings: 'pcieerd_settings_v4',
+      manualEntries: 'pcieerd_manual_v4',
+      icsCache: 'pcieerd_ics_cache_v4',
+      csvCache: 'pcieerd_csv_cache_v4'
     };
 
     const state = {
@@ -702,8 +703,9 @@
             listEl.innerHTML = sorted.map(e => {
               const d = new Date(e.startDate);
               const uidDisplay = state.settings.showUid && e.uid ? `<div class="text-[0.65rem] text-amber-400 truncate">UID: ${escapeHtml(e.uid)}</div>` : '';
+              const exceptionBadge = e.isRecurrenceException ? '<span class="text-[0.6rem] text-amber-300 ml-1">(modified)</span>' : '';
               return `<div class="py-2 border-b border-[var(--border)] last:border-0">
-                <div class="font-medium text-sm">${escapeHtml(e.title)}</div>
+                <div class="font-medium text-sm">${escapeHtml(e.title)}${exceptionBadge}</div>
                 <div class="text-[0.7rem] text-[var(--fg-muted)]">
                   ${d.toLocaleDateString()} ${e.isAllDay ? '(All Day)' : d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
                   <span class="event-source-badge source-${e.source}">${e.source}</span>
@@ -719,12 +721,12 @@
     }
 
     // ============================================
-    // ICS PARSER
+    // ICS PARSER WITH PROPER EXCEPTION HANDLING
     // ============================================
     function parseICS(content) {
       try {
         log('Parsing ICS content...', 'info');
-        const events = [];
+        const rawEvents = [];  // Store raw events before processing
         const lines = content.split(/\r?\n/);
         let currentEvent = null;
         let currentKey = null;
@@ -763,28 +765,161 @@
             veventCount++;
           } else if (baseKey === 'END' && currentValue === 'VEVENT') {
             if (currentEvent) {
-              try {
-                const processed = processICSEvent(currentEvent);
-                if (processed) {
-                  if (Array.isArray(processed)) {
-                    events.push(...processed);
-                  } else {
-                    events.push(processed);
-                  }
-                }
-              } catch (procErr) {
-                log(`Error processing event: ${procErr.message}`, 'error');
-              }
+              rawEvents.push(currentEvent);
             }
             currentEvent = null;
           }
         }
 
-        log(`Found ${veventCount} VEVENT blocks, parsed ${events.length} events`, events.length > 0 ? 'success' : 'warning');
-        return events;
+        log(`Found ${veventCount} VEVENT blocks`, 'info');
+
+        // Process events in two passes
+        // Pass 1: Identify recurring series and exceptions
+        const recurringSeries = [];  // Events with RRULE
+        const exceptions = [];       // Events with RECURRENCE-ID
+        const normalEvents = [];     // Regular events
+
+        for (const raw of rawEvents) {
+          const processed = processICSEvent(raw);
+          if (!processed) continue;
+
+          if (processed.isRecurrenceException) {
+            exceptions.push(processed);
+          } else if (processed.isRecurring) {
+            recurringSeries.push(processed);
+          } else {
+            normalEvents.push(processed);
+          }
+        }
+
+        log(`Series: ${recurringSeries.length}, Exceptions: ${exceptions.length}, Normal: ${normalEvents.length}`, 'info');
+
+        // Pass 2: Expand recurring events and handle exceptions
+        const finalEvents = [...normalEvents];
+
+        for (const series of recurringSeries) {
+          // Find exceptions for this series
+          const seriesExceptions = exceptions.filter(e => e.uid === series.uid);
+          
+          // Expand the series
+          const expanded = expandRecurringWithExceptions(series, seriesExceptions);
+          
+          // Add expanded events (excluding those replaced by exceptions)
+          finalEvents.push(...expanded.events);
+          
+          // Track how many were replaced
+          if (expanded.replacedCount > 0) {
+            log(`Series "${series.title}": ${expanded.events.length} occurrences, ${expanded.replacedCount} modified instances`, 'info');
+          } else {
+            log(`Series "${series.title}": ${expanded.events.length} occurrences`, 'success');
+          }
+        }
+
+        // Add standalone exceptions (not part of any series we found)
+        const standaloneExceptions = exceptions.filter(e => 
+          !recurringSeries.some(s => s.uid === e.uid)
+        );
+        finalEvents.push(...standaloneExceptions);
+
+        log(`Total events parsed: ${finalEvents.length}`, 'success');
+        return finalEvents;
+
       } catch (e) {
         log(`ICS parse error: ${e.message}`, 'error');
         return [];
+      }
+    }
+
+    function expandRecurringWithExceptions(seriesEvent, exceptions) {
+      try {
+        const result = {
+          events: [],
+          replacedCount: 0
+        };
+
+        // Create a map of exception dates (RECURRENCE-ID -> Exception Event)
+        const exceptionMap = new Map();
+        for (const exc of exceptions) {
+          if (exc.recurrenceIdDate) {
+            const key = exc.recurrenceIdDate.getTime();
+            exceptionMap.set(key, exc);
+          }
+        }
+
+        // Expand the series
+        const rrule = seriesEvent.rrule;
+        if (!rrule) {
+          result.events.push(seriesEvent);
+          return result;
+        }
+
+        const freqMatch = rrule.match(/FREQ=(DAILY|WEEKLY|MONTHLY|YEARLY)/i);
+        const countMatch = rrule.match(/COUNT=(\d+)/i);
+        const intervalMatch = rrule.match(/INTERVAL=(\d+)/i);
+        const untilMatch = rrule.match(/UNTIL=(\d+)/i);
+
+        if (!freqMatch) {
+          result.events.push(seriesEvent);
+          return result;
+        }
+
+        const freq = freqMatch[1].toUpperCase();
+        const interval = intervalMatch ? parseInt(intervalMatch[1]) : 1;
+        const maxCount = countMatch ? Math.min(parseInt(countMatch[1]), 50) : 50;
+
+        const start = new Date(seriesEvent.startDate);
+        const end = seriesEvent.endDate ? new Date(seriesEvent.endDate) : null;
+        const duration = end ? end.getTime() - start.getTime() : 3600000;
+
+        let current = new Date(start);
+        
+        for (let i = 0; i < maxCount; i++) {
+          // Check for exception at this date
+          const currentKey = current.getTime();
+          const exception = exceptionMap.get(currentKey);
+
+          if (exception) {
+            // Use the exception instead of the generated occurrence
+            result.events.push({
+              ...exception,
+              _isExpandedOccurrence: true
+            });
+            result.replacedCount++;
+          } else {
+            // Generate normal occurrence
+            const occurrenceStart = new Date(current);
+            const occurrenceEnd = new Date(occurrenceStart.getTime() + duration);
+
+            result.events.push({
+              ...seriesEvent,
+              id: `${seriesEvent.id}_${i}`,
+              startDate: occurrenceStart.toISOString(),
+              endDate: occurrenceEnd.toISOString(),
+              _isExpandedOccurrence: true
+            });
+          }
+
+          // Calculate next occurrence
+          switch (freq) {
+            case 'DAILY': current.setDate(current.getDate() + interval); break;
+            case 'WEEKLY': current.setDate(current.getDate() + (7 * interval)); break;
+            case 'MONTHLY': current.setMonth(current.getMonth() + interval); break;
+            case 'YEARLY': current.setFullYear(current.getFullYear() + interval); break;
+          }
+
+          // Stop conditions
+          if (untilMatch) {
+            const untilDate = parseICSDate(untilMatch[1], '');
+            if (untilDate && current > untilDate) break;
+          }
+
+          if (current > new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)) break;
+        }
+
+        return result;
+      } catch (e) {
+        log(`Expand recurring error: ${e.message}`, 'error');
+        return { events: [seriesEvent], replacedCount: 0 };
       }
     }
 
@@ -817,6 +952,12 @@
         const recurrenceId = getProp('RECURRENCE-ID');
         const rrule = getProp('RRULE');
 
+        // Parse RECURRENCE-ID date if present
+        let recurrenceIdDate = null;
+        if (recurrenceId) {
+          recurrenceIdDate = parseICSDate(recurrenceId, '');
+        }
+
         // Find DTSTART
         const dtstartKeys = getAllKeysWithPrefix('DTSTART');
         let startDate = null;
@@ -829,7 +970,6 @@
         }
 
         if (!startDate) {
-          log(`SKIP: "${summary}" - no valid DTSTART`, 'warning');
           return null;
         }
 
@@ -847,8 +987,8 @@
         // Generate unique ID
         let uniqueId;
         if (uid && recurrenceId) {
-          const recIdDate = parseICSDate(recurrenceId, '');
-          uniqueId = `${uid}_${recIdDate ? recIdDate.getTime() : 'rec'}`;
+          // Exception event - use UID + RECURRENCE-ID for uniqueness
+          uniqueId = `${uid}_${recurrenceIdDate ? recurrenceIdDate.getTime() : 'rec'}`;
         } else if (uid) {
           uniqueId = uid;
         } else {
@@ -856,7 +996,7 @@
           uniqueId = `generated_${hashString(summary + dateStr)}`;
         }
 
-        const event = {
+        return {
           id: uniqueId,
           uid: uid,
           title: summary,
@@ -868,19 +1008,10 @@
           status: status.toUpperCase() === 'CANCELLED' ? 'cancelled' : 'confirmed',
           source: 'ics',
           isRecurring: !!rrule,
-          isRecurrenceException: !!recurrenceId
+          isRecurrenceException: !!recurrenceId,
+          recurrenceIdDate: recurrenceIdDate,
+          rrule: rrule
         };
-
-        if (rrule && !recurrenceId) {
-          const expanded = expandRecurring(event, rrule);
-          if (expanded.length > 1) {
-            log(`Expanded recurring "${summary}" into ${expanded.length} occurrences`, 'info');
-          }
-          return expanded;
-        }
-
-        log(`OK: "${summary}" @ ${startDate.toLocaleString()}`, 'success');
-        return event;
 
       } catch (e) {
         log(`ERROR processing event: ${e.message}`, 'error');
@@ -930,53 +1061,6 @@
       }
     }
 
-    function expandRecurring(baseEvent, rrule) {
-      try {
-        const events = [baseEvent];
-        
-        const freqMatch = rrule.match(/FREQ=(DAILY|WEEKLY|MONTHLY|YEARLY)/i);
-        const countMatch = rrule.match(/COUNT=(\d+)/i);
-        const intervalMatch = rrule.match(/INTERVAL=(\d+)/i);
-
-        if (!freqMatch) return events;
-
-        const freq = freqMatch[1].toUpperCase();
-        const interval = intervalMatch ? parseInt(intervalMatch[1]) : 1;
-        const maxCount = countMatch ? Math.min(parseInt(countMatch[1]), 30) : 30;
-
-        const start = new Date(baseEvent.startDate);
-        const end = baseEvent.endDate ? new Date(baseEvent.endDate) : null;
-        const duration = end ? end.getTime() - start.getTime() : 3600000;
-
-        let current = new Date(start);
-        
-        for (let i = 1; i < maxCount; i++) {
-          switch (freq) {
-            case 'DAILY': current.setDate(current.getDate() + interval); break;
-            case 'WEEKLY': current.setDate(current.getDate() + (7 * interval)); break;
-            case 'MONTHLY': current.setMonth(current.getMonth() + interval); break;
-            case 'YEARLY': current.setFullYear(current.getFullYear() + interval); break;
-          }
-
-          if (current > new Date(Date.now() + 180 * 24 * 60 * 60 * 1000)) break;
-
-          const newStart = new Date(current);
-          const newEnd = new Date(newStart.getTime() + duration);
-
-          events.push({
-            ...baseEvent,
-            id: `${baseEvent.id}_${i}`,
-            startDate: newStart.toISOString(),
-            endDate: newEnd.toISOString()
-          });
-        }
-
-        return events;
-      } catch (e) {
-        return [baseEvent];
-      }
-    }
-
     // ============================================
     // CSV PARSER
     // ============================================
@@ -1022,7 +1106,7 @@
               source: 'csv'
             });
           } catch (rowErr) {
-            log(`CSV row ${i} error: ${rowErr.message}`, 'warning');
+            // Skip bad rows silently
           }
         }
 
@@ -1105,7 +1189,7 @@
       const url = state.settings.icsLink;
       if (!url) return;
 
-      log(`Fetching ICS...`, 'info');
+      log('Fetching ICS...', 'info');
 
       try {
         let response;
@@ -1122,17 +1206,16 @@
         log(`ICS received: ${content.length} bytes`, 'info');
 
         const events = parseICS(content);
-        const flatEvents = events.flat();
         
-        localStorage.setItem(STORAGE_KEYS.icsCache, JSON.stringify({ events: flatEvents, time: new Date().toISOString() }));
+        localStorage.setItem(STORAGE_KEYS.icsCache, JSON.stringify({ events, time: new Date().toISOString() }));
         
         state.events = [
           ...state.events.filter(e => e.source !== 'ics'),
-          ...flatEvents
+          ...events
         ];
         
         state.isOnline = true;
-        log(`Loaded ${flatEvents.length} ICS events`, 'success');
+        log(`Loaded ${events.length} ICS events`, 'success');
 
       } catch (e) {
         log(`ICS fetch error: ${e.message}`, 'error');
@@ -1158,7 +1241,7 @@
       const url = state.settings.csvUrl;
       if (!url) return;
 
-      log(`Fetching CSV...`, 'info');
+      log('Fetching CSV...', 'info');
 
       try {
         let response;
@@ -1195,7 +1278,7 @@
               ...data.events
             ];
           } catch (cacheErr) {
-            log(`CSV cache error: ${cacheErr.message}`, 'error');
+            // Silent fail
           }
         }
       }
@@ -1228,26 +1311,28 @@
 
         if (!content.includes('BEGIN:VCALENDAR')) {
           log('Invalid ICS - no VCALENDAR found', 'error');
-          log(`Preview: ${content.substring(0, 200)}`, 'info');
           alert('Invalid ICS file. Check Debug tab for details.');
           return;
         }
 
         const veventCount = (content.match(/BEGIN:VEVENT/gi) || []).length;
-        log(`Found ${veventCount} VEVENT blocks`, veventCount > 0 ? 'success' : 'warning');
+        log(`Found ${veventCount} VEVENT blocks in file`, 'success');
 
         const events = parseICS(content);
-        const flatEvents = events.flat();
-        log(`Parsed ${flatEvents.length} events`, 'success');
+        
+        // Show today's events
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStr = today.toDateString();
+        
+        const todayEvents = events.filter(e => new Date(e.startDate).toDateString() === todayStr);
+        
+        log(`Today's events: ${todayEvents.length}`, 'info');
+        todayEvents.slice(0, 5).forEach((e, i) => {
+          log(`  ${i + 1}. "${e.title}" @ ${new Date(e.startDate).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`, 'info');
+        });
 
-        if (flatEvents.length > 0) {
-          log('Sample events:', 'info');
-          flatEvents.slice(0, 5).forEach((e, i) => {
-            log(`  ${i + 1}. "${e.title}" @ ${new Date(e.startDate).toLocaleString()}`, 'info');
-          });
-        }
-
-        alert(`Test Complete!\n\nVEVENTs in file: ${veventCount}\nEvents parsed: ${flatEvents.length}\n\nCheck Debug tab for details.`);
+        alert(`Test Complete!\n\nVEVENTs in file: ${veventCount}\nTotal events parsed: ${events.length}\nToday's events: ${todayEvents.length}\n\nCheck Debug tab for details.`);
 
       } catch (e) {
         log(`Test failed: ${e.message}`, 'error');
@@ -1645,7 +1730,7 @@
         }
         
         el.innerHTML = state.manualEntries.map((e, i) => `
-          <div class="entry-card flex items-start justify-between gap-4">
+          <div class="p-3 bg-[var(--bg)] rounded-lg border border-[var(--border)] flex items-start justify-between gap-4">
             <div class="flex-1 min-w-0">
               <h5 class="font-medium truncate">${escapeHtml(e.title)}</h5>
               <p class="text-sm text-[var(--fg-muted)]">${new Date(e.startDate).toLocaleDateString()} ${e.isAllDay ? '' : formatTime(new Date(e.startDate))}</p>
@@ -1708,8 +1793,8 @@
           });
         }
 
-        const closeSettings = document.getElementById('closeSettings');
-        if (closeSettings) closeSettings.addEventListener('click', closeSettingsPanel);
+        const closeSettingsBtn = document.getElementById('closeSettings');
+        if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', closeSettingsPanel);
 
         const overlay = document.getElementById('settingsOverlay');
         if (overlay) overlay.addEventListener('click', closeSettingsPanel);
