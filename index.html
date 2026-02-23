@@ -1,0 +1,1746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PCIEERD Calendar Information System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0f1a;
+      --bg-secondary: #111827;
+      --bg-card: #1a2332;
+      --fg: #f1f5f9;
+      --fg-muted: #94a3b8;
+      --accent: #06b6d4;
+      --accent-glow: rgba(6, 182, 212, 0.15);
+      --border: #1e293b;
+      --upcoming: #3b82f6;
+      --ongoing: #10b981;
+      --completed: #ef4444;
+      --cancelled: #6b7280;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+    }
+
+    h1, h2, h3, h4, h5, h6, .font-display {
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    /* Background pattern */
+    .bg-pattern {
+      position: fixed;
+      inset: 0;
+      background: 
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(6, 182, 212, 0.08), transparent),
+        radial-gradient(ellipse 60% 40% at 100% 100%, rgba(59, 130, 246, 0.05), transparent),
+        linear-gradient(180deg, var(--bg) 0%, #0d1321 100%);
+      z-index: -1;
+    }
+
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 60px 60px;
+      z-index: -1;
+    }
+
+    /* Status indicators */
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .status-upcoming { background: var(--upcoming); }
+    .status-ongoing { background: var(--ongoing); }
+    .status-completed { background: var(--completed); }
+    .status-cancelled { background: var(--cancelled); }
+
+    .text-upcoming { color: var(--upcoming); }
+    .text-ongoing { color: var(--ongoing); }
+    .text-completed { color: var(--completed); }
+    .text-cancelled { color: var(--cancelled); }
+
+    /* Marquee animation */
+    @keyframes marquee {
+      0%, 20% { transform: translateX(0); }
+      80%, 100% { transform: translateX(calc(-100% + 100% - 2rem)); }
+    }
+
+    .marquee-container {
+      overflow: hidden;
+      position: relative;
+    }
+
+    .marquee-text {
+      display: inline-block;
+      white-space: nowrap;
+    }
+
+    .marquee-text.animate {
+      animation: marquee 8s linear infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .marquee-text.animate {
+        animation: none;
+        text-overflow: ellipsis;
+        overflow: hidden;
+      }
+    }
+
+    /* Transition animations */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slideLeft {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .animate-fade { animation: fadeIn 0.5s ease-out forwards; }
+    .animate-slide-up { animation: slideUp 0.5s ease-out forwards; }
+    .animate-slide-left { animation: slideLeft 0.5s ease-out forwards; }
+
+    /* Scroll container */
+    .scroll-container {
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .scroll-container::-webkit-scrollbar {
+      display: none;
+    }
+
+    @keyframes gentleScroll {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-100%); }
+    }
+
+    .auto-scroll {
+      animation: gentleScroll var(--scroll-duration, 60s) linear infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .auto-scroll {
+        animation: none;
+      }
+    }
+
+    /* Settings panel */
+    .settings-panel {
+      position: fixed;
+      top: 0;
+      right: -480px;
+      width: 480px;
+      height: 100%;
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border);
+      z-index: 100;
+      transition: right 0.3s ease;
+      overflow-y: auto;
+    }
+
+    .settings-panel.open {
+      right: 0;
+    }
+
+    .settings-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s, visibility 0.3s;
+      z-index: 99;
+    }
+
+    .settings-overlay.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* Form elements */
+    input, select, textarea {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--fg);
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      width: 100%;
+      font-size: 0.875rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    button {
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* PIN Modal */
+    .pin-modal {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 200;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s, visibility 0.3s;
+    }
+
+    .pin-modal.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .pin-input {
+      letter-spacing: 0.5em;
+      text-align: center;
+      font-size: 1.5rem;
+    }
+
+    /* Gear button */
+    .gear-btn {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      opacity: 0.3;
+      transition: opacity 0.3s, background 0.2s;
+    }
+
+    .gear-btn:hover {
+      opacity: 1;
+      background: var(--bg-secondary);
+    }
+
+    /* Table styles */
+    .calendar-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    .calendar-table th {
+      text-align: left;
+      padding: 1rem 1.5rem;
+      font-weight: 600;
+      color: var(--fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-size: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .calendar-table td {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .calendar-row {
+      transition: background 0.2s;
+    }
+
+    .calendar-row:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* View tabs */
+    .view-tab {
+      padding: 0.5rem 1.25rem;
+      border-radius: 6px;
+      font-weight: 500;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+      background: transparent;
+      color: var(--fg-muted);
+      border: none;
+    }
+
+    .view-tab.active {
+      background: var(--accent);
+      color: var(--bg);
+    }
+
+    .view-tab:not(.active):hover {
+      background: var(--bg-card);
+      color: var(--fg);
+    }
+
+    /* Header date display */
+    .date-header {
+      font-size: clamp(2rem, 5vw, 4rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .time-header {
+      font-size: clamp(1.5rem, 3vw, 2.5rem);
+      font-weight: 500;
+      color: var(--fg-muted);
+    }
+
+    /* Manual entry card */
+    .entry-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+      transition: border-color 0.2s;
+    }
+
+    .entry-card:hover {
+      border-color: var(--accent);
+    }
+
+    /* Empty state */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 60vh;
+      color: var(--fg-muted);
+    }
+
+    /* Status bar */
+    .status-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 32px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem;
+      font-size: 0.75rem;
+      color: var(--fg-muted);
+      z-index: 40;
+    }
+
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--ongoing);
+    }
+
+    .status-indicator.offline {
+      background: var(--completed);
+    }
+
+    /* Hide cursor after inactivity */
+    .cursor-hidden {
+      cursor: none;
+    }
+
+    .cursor-hidden * {
+      cursor: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-pattern"></div>
+  <div class="bg-grid"></div>
+
+  <!-- Gear Button -->
+  <button class="gear-btn" id="gearBtn" aria-label="Open Settings">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"></circle>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+    </svg>
+  </button>
+
+  <!-- PIN Modal -->
+  <div class="pin-modal" id="pinModal">
+    <div class="bg-[var(--bg-card)] p-8 rounded-2xl border border-[var(--border)] w-80">
+      <h3 class="font-display text-xl font-semibold mb-6 text-center">Enter PIN</h3>
+      <input type="password" id="pinInput" class="pin-input w-full mb-4" maxlength="6" placeholder="------" autocomplete="off">
+      <p class="text-[var(--completed)] text-sm text-center mb-4 hidden" id="pinError">Incorrect PIN</p>
+      <div class="flex gap-3">
+        <button class="flex-1 py-3 rounded-lg bg-[var(--bg)] border border-[var(--border)] text-[var(--fg-muted)] hover:bg-[var(--bg-secondary)]" id="pinCancel">Cancel</button>
+        <button class="flex-1 py-3 rounded-lg bg-[var(--accent)] text-[var(--bg)] font-medium hover:opacity-90" id="pinSubmit">Unlock</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Overlay -->
+  <div class="settings-overlay" id="settingsOverlay"></div>
+
+  <!-- Settings Panel -->
+  <div class="settings-panel" id="settingsPanel">
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-8">
+        <h2 class="font-display text-xl font-semibold">Settings</h2>
+        <button class="w-10 h-10 rounded-lg bg-[var(--bg-card)] flex items-center justify-center hover:bg-[var(--border)]" id="closeSettings" aria-label="Close Settings">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Tabs -->
+      <div class="flex gap-2 mb-6 p-1 bg-[var(--bg-card)] rounded-lg">
+        <button class="view-tab active flex-1" data-tab="sources">Data Sources</button>
+        <button class="view-tab flex-1" data-tab="display">Display</button>
+        <button class="view-tab flex-1" data-tab="entries">Entries</button>
+      </div>
+
+      <!-- Data Sources Tab -->
+      <div class="tab-content" id="tab-sources">
+        <div class="space-y-6">
+          <div>
+            <label class="block text-sm font-medium mb-2">ICS Link (Outlook)</label>
+            <input type="url" id="icsLink" placeholder="https://outlook.office365.com/owa/calendar/...">
+            <p class="text-xs text-[var(--fg-muted)] mt-2">Paste your published Outlook ICS link</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">CSV URL</label>
+            <input type="url" id="csvUrl" placeholder="https://example.com/calendar.csv">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Or Upload CSV</label>
+            <input type="file" id="csvFile" accept=".csv" class="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-[var(--accent)] file:text-[var(--bg)] file:font-medium file:cursor-pointer">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Auto Refresh Interval</label>
+            <select id="refreshInterval">
+              <option value="30">30 seconds</option>
+              <option value="60" selected>1 minute</option>
+              <option value="120">2 minutes</option>
+              <option value="300">5 minutes</option>
+              <option value="600">10 minutes</option>
+              <option value="custom">Custom</option>
+            </select>
+            <input type="number" id="customRefresh" class="mt-2 hidden" placeholder="Seconds" min="10" max="3600">
+          </div>
+
+          <button class="w-full py-3 rounded-lg bg-[var(--accent)] text-[var(--bg)] font-medium hover:opacity-90" id="refreshData">
+            Refresh Data Now
+          </button>
+        </div>
+      </div>
+
+      <!-- Display Tab -->
+      <div class="tab-content hidden" id="tab-display">
+        <div class="space-y-6">
+          <div>
+            <label class="block text-sm font-medium mb-2">View Mode</label>
+            <select id="viewMode">
+              <option value="day">Day View (Today)</option>
+              <option value="week">Week View</option>
+              <option value="month">Month View</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Transition Style</label>
+            <select id="transitionStyle">
+              <option value="static">Static</option>
+              <option value="fade">Fade</option>
+              <option value="slideUp">Slide Up</option>
+              <option value="slideLeft">Slide Left</option>
+              <option value="autoScroll">Vertical Auto Scroll</option>
+              <option value="gentleScroll">Gentle Continuous Scroll</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Movement</label>
+            <div class="flex gap-3">
+              <button class="flex-1 py-2 rounded-lg bg-[var(--accent)] text-[var(--bg)] font-medium" id="movementOn">Enabled</button>
+              <button class="flex-1 py-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border)]" id="movementOff">Disabled</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Transition Speed</label>
+            <select id="transitionSpeed">
+              <option value="very-slow">Very Slow</option>
+              <option value="slow">Slow</option>
+              <option value="normal" selected>Normal</option>
+              <option value="fast">Fast</option>
+              <option value="custom">Custom</option>
+            </select>
+            <input type="number" id="customSpeed" class="mt-2 hidden" placeholder="Duration (seconds)" min="1" max="60">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">PIN Protection</label>
+            <input type="password" id="pinSetting" placeholder="Enter 4-6 digit PIN" maxlength="6">
+            <p class="text-xs text-[var(--fg-muted)] mt-2">Leave empty to remove PIN protection</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Entries Tab -->
+      <div class="tab-content hidden" id="tab-entries">
+        <div class="space-y-6">
+          <div class="p-4 bg-[var(--bg-card)] rounded-xl border border-[var(--border)]">
+            <h4 class="font-medium mb-4">Add Manual Entry</h4>
+            <div class="space-y-3">
+              <input type="text" id="entryTitle" placeholder="Event Title *">
+              <input type="date" id="entryDate">
+              <div class="grid grid-cols-2 gap-3">
+                <input type="time" id="entryStartTime" placeholder="Start Time">
+                <input type="time" id="entryEndTime" placeholder="End Time">
+              </div>
+              <input type="text" id="entryLocation" placeholder="Location (optional)">
+              <textarea id="entryDescription" rows="2" placeholder="Description (optional)"></textarea>
+              <button class="w-full py-3 rounded-lg bg-[var(--accent)] text-[var(--bg)] font-medium hover:opacity-90" id="addEntry">
+                Add Entry
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <h4 class="font-medium mb-4">Manual Entries</h4>
+            <div id="entriesList" class="space-y-3">
+              <p class="text-[var(--fg-muted)] text-sm">No manual entries</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Save Button -->
+      <div class="mt-8 pt-6 border-t border-[var(--border)]">
+        <button class="w-full py-3 rounded-lg bg-[var(--ongoing)] text-white font-medium hover:opacity-90" id="saveSettings">
+          Save and Apply
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Display -->
+  <main class="h-full flex flex-col" id="mainDisplay">
+    <!-- Header -->
+    <header class="px-8 pt-8 pb-6">
+      <div class="flex items-end justify-between">
+        <div>
+          <p class="text-[var(--accent)] text-sm font-medium tracking-widest uppercase mb-2">PCIEERD Calendar Information System</p>
+          <div class="flex items-baseline gap-6">
+            <h1 class="date-header font-display" id="dateDisplay">Monday, January 15</h1>
+            <span class="time-header" id="timeDisplay">10:30 AM</span>
+          </div>
+        </div>
+        <div class="flex gap-2 bg-[var(--bg-card)] rounded-lg p-1">
+          <button class="view-tab active" data-view="day">Day</button>
+          <button class="view-tab" data-view="week">Week</button>
+          <button class="view-tab" data-view="month">Month</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Calendar Content -->
+    <div class="flex-1 px-8 pb-12 overflow-hidden" id="calendarContainer">
+      <div class="scroll-container h-full" id="scrollContainer">
+        <table class="calendar-table" id="calendarTable">
+          <thead>
+            <tr>
+              <th style="width: 20%;">Time</th>
+              <th style="width: 50%;">Title</th>
+              <th style="width: 30%;">Details</th>
+            </tr>
+          </thead>
+          <tbody id="calendarBody">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <div class="flex items-center gap-2">
+      <div class="status-indicator" id="onlineIndicator"></div>
+      <span id="statusText">Online - Last updated: Just now</span>
+    </div>
+    <div class="flex items-center gap-4">
+      <span id="eventCount">0 events</span>
+      <span id="nextRefresh">Next refresh: 60s</span>
+    </div>
+  </div>
+
+  <script>
+    // ============================================
+    // PCIEERD Calendar Information System
+    // ============================================
+
+    // State Management
+    const state = {
+      events: [],
+      settings: {
+        icsLink: '',
+        csvUrl: '',
+        viewMode: 'day',
+        transitionStyle: 'fade',
+        movementEnabled: true,
+        transitionSpeed: 'normal',
+        refreshInterval: 60,
+        pin: '',
+        customRefresh: 120,
+        customSpeed: 5
+      },
+      manualEntries: [],
+      lastUpdate: null,
+      isOnline: navigator.onLine,
+      cursorTimeout: null
+    };
+
+    // Local Storage Keys
+    const STORAGE_KEYS = {
+      settings: 'pcieerd_settings',
+      manualEntries: 'pcieerd_manual_entries',
+      icsCache: 'pcieerd_ics_cache',
+      csvCache: 'pcieerd_csv_cache'
+    };
+
+    // ============================================
+    // Initialization
+    // ============================================
+    
+    function init() {
+      loadFromStorage();
+      renderEvents();
+      updateDateTime();
+      startClock();
+      setupEventListeners();
+      startAutoRefresh();
+      setupCursorHiding();
+      
+      // Initial data fetch
+      if (state.settings.icsLink || state.settings.csvUrl) {
+        fetchAllData();
+      }
+    }
+
+    function loadFromStorage() {
+      try {
+        const settings = localStorage.getItem(STORAGE_KEYS.settings);
+        if (settings) {
+          state.settings = { ...state.settings, ...JSON.parse(settings) };
+        }
+
+        const manualEntries = localStorage.getItem(STORAGE_KEYS.manualEntries);
+        if (manualEntries) {
+          state.manualEntries = JSON.parse(manualEntries);
+        }
+
+        const icsCache = localStorage.getItem(STORAGE_KEYS.icsCache);
+        if (icsCache) {
+          const cached = JSON.parse(icsCache);
+          if (cached.events) {
+            state.events = mergeEvents(state.events, cached.events);
+          }
+        }
+
+        const csvCache = localStorage.getItem(STORAGE_KEYS.csvCache);
+        if (csvCache) {
+          const cached = JSON.parse(csvCache);
+          if (cached.events) {
+            state.events = mergeEvents(state.events, cached.events);
+          }
+        }
+      } catch (e) {
+        console.error('Error loading from storage:', e);
+      }
+
+      // Update UI with loaded settings
+      updateSettingsUI();
+    }
+
+    function saveToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(state.settings));
+        localStorage.setItem(STORAGE_KEYS.manualEntries, JSON.stringify(state.manualEntries));
+      } catch (e) {
+        console.error('Error saving to storage:', e);
+      }
+    }
+
+    // ============================================
+    // ICS Parser
+    // ============================================
+    
+    function parseICS(icsContent) {
+      const events = [];
+      const lines = icsContent.split(/\r?\n/);
+      let currentEvent = null;
+      let currentKey = null;
+      let currentValue = '';
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        
+        // Handle line continuation
+        if (line.startsWith(' ') || line.startsWith('\t')) {
+          if (currentKey) {
+            currentValue += line.slice(1);
+            continue;
+          }
+        }
+
+        // Save previous property
+        if (currentKey && currentEvent) {
+          currentEvent[currentKey] = currentValue;
+        }
+
+        // Parse new property
+        const colonIndex = line.indexOf(':');
+        if (colonIndex === -1) {
+          currentKey = null;
+          continue;
+        }
+
+        const fullKey = line.slice(0, colonIndex);
+        currentValue = line.slice(colonIndex + 1);
+        
+        const keyParts = fullKey.split(';');
+        currentKey = keyParts[0];
+
+        if (currentKey === 'BEGIN' && currentValue === 'VEVENT') {
+          currentEvent = {};
+        } else if (currentKey === 'END' && currentValue === 'VEVENT') {
+          if (currentEvent) {
+            const event = processICSEvent(currentEvent);
+            if (event) {
+              events.push(event);
+            }
+          }
+          currentEvent = null;
+        }
+      }
+
+      return events;
+    }
+
+    function processICSEvent(raw) {
+      try {
+        const summary = raw['SUMMARY'] || 'Untitled Event';
+        const location = raw['LOCATION'] || '';
+        const description = raw['DESCRIPTION'] || '';
+        const status = raw['STATUS'] || '';
+        const uid = raw['UID'] || '';
+        
+        // Parse dates
+        let startDate = parseICSDate(raw['DTSTART'], raw['DTSTART;VALUE=DATE']);
+        let endDate = parseICSDate(raw['DTEND'], raw['DTEND;VALUE=DATE']);
+        
+        if (!startDate) return null;
+
+        const isAllDay = raw['DTSTART;VALUE=DATE'] || (raw['DTSTART'] && raw['DTSTART'].length === 8);
+        
+        return {
+          id: uid || `ics-${Date.now()}-${Math.random()}`,
+          title: summary,
+          startDate: startDate.toISOString(),
+          endDate: endDate ? endDate.toISOString() : null,
+          location: location,
+          description: description,
+          isAllDay: !!isAllDay,
+          status: status.toLowerCase() === 'cancelled' ? 'cancelled' : 'confirmed',
+          source: 'ics'
+        };
+      } catch (e) {
+        console.error('Error processing ICS event:', e);
+        return null;
+      }
+    }
+
+    function parseICSDate(dtValue, dateValue) {
+      const value = dateValue || dtValue;
+      if (!value) return null;
+
+      // Remove any parameters
+      const dateStr = value.includes(':') ? value.split(':').pop() : value;
+      
+      try {
+        // All-day event (YYYYMMDD)
+        if (dateStr.length === 8) {
+          return new Date(
+            parseInt(dateStr.slice(0, 4)),
+            parseInt(dateStr.slice(4, 6)) - 1,
+            parseInt(dateStr.slice(6, 8))
+          );
+        }
+        
+        // DateTime with optional timezone (YYYYMMDDTHHMMSSZ or YYYYMMDDTHHMMSS)
+        if (dateStr.includes('T')) {
+          const cleanStr = dateStr.replace(/Z$/, '');
+          const year = parseInt(cleanStr.slice(0, 4));
+          const month = parseInt(cleanStr.slice(4, 6)) - 1;
+          const day = parseInt(cleanStr.slice(6, 8));
+          const hour = parseInt(cleanStr.slice(9, 11));
+          const minute = parseInt(cleanStr.slice(11, 13));
+          const second = parseInt(cleanStr.slice(13, 15) || '0');
+          
+          return new Date(Date.UTC(year, month, day, hour, minute, second));
+        }
+        
+        return null;
+      } catch (e) {
+        console.error('Error parsing date:', dateStr, e);
+        return null;
+      }
+    }
+
+    // ============================================
+    // CSV Parser
+    // ============================================
+    
+    function parseCSV(csvContent) {
+      const events = [];
+      const lines = csvContent.split(/\r?\n/).filter(line => line.trim());
+      
+      if (lines.length < 2) return events;
+      
+      const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
+      
+      for (let i = 1; i < lines.length; i++) {
+        const values = parseCSVLine(lines[i]);
+        if (values.length < 2) continue;
+        
+        const row = {};
+        headers.forEach((header, idx) => {
+          row[header] = values[idx] || '';
+        });
+        
+        const event = processCSVEvent(row);
+        if (event) {
+          events.push(event);
+        }
+      }
+      
+      return events;
+    }
+
+    function parseCSVLine(line) {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      
+      result.push(current.trim());
+      return result;
+    }
+
+    function processCSVEvent(row) {
+      try {
+        const title = row['title'] || row['event'] || row['name'] || 'Untitled';
+        const dateStr = row['start date'] || row['date'] || '';
+        const startTime = row['start time'] || '';
+        const endTime = row['end time'] || row['end date'] ? row['end time'] || '' : '';
+        const endDateStr = row['end date'] || dateStr;
+        const location = row['location'] || row['room'] || '';
+        const description = row['description'] || row['details'] || '';
+        const status = row['status'] || 'confirmed';
+        
+        const startDate = parseCSVDate(dateStr, startTime);
+        const endDate = parseCSVDate(endDateStr, endTime);
+        
+        if (!startDate) return null;
+        
+        const isAllDay = !startTime || startTime.toLowerCase() === 'all day';
+        
+        return {
+          id: `csv-${Date.now()}-${Math.random()}`,
+          title: title,
+          startDate: startDate.toISOString(),
+          endDate: endDate ? endDate.toISOString() : null,
+          location: location,
+          description: description,
+          isAllDay: isAllDay,
+          status: status.toLowerCase() === 'cancelled' ? 'cancelled' : 'confirmed',
+          source: 'csv'
+        };
+      } catch (e) {
+        console.error('Error processing CSV event:', e);
+        return null;
+      }
+    }
+
+    function parseCSVDate(dateStr, timeStr) {
+      if (!dateStr) return null;
+      
+      try {
+        // Try various date formats
+        let date;
+        const cleanDate = dateStr.trim();
+        
+        // ISO format: YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
+          date = new Date(cleanDate);
+        }
+        // US format: MM/DD/YYYY
+        else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(cleanDate)) {
+          const parts = cleanDate.split('/');
+          date = new Date(parts[2], parseInt(parts[0]) - 1, parts[1]);
+        }
+        // European format: DD/MM/YYYY
+        else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(cleanDate)) {
+          const parts = cleanDate.split('/');
+          date = new Date(parts[2], parseInt(parts[1]) - 1, parts[0]);
+        }
+        else {
+          date = new Date(cleanDate);
+        }
+        
+        if (isNaN(date.getTime())) return null;
+        
+        // Add time if provided
+        if (timeStr && timeStr.toLowerCase() !== 'all day') {
+          const timeParts = timeStr.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+          if (timeParts) {
+            let hours = parseInt(timeParts[1]);
+            const minutes = parseInt(timeParts[2]);
+            
+            if (timeParts[3]) {
+              if (timeParts[3].toLowerCase() === 'pm' && hours !== 12) {
+                hours += 12;
+              } else if (timeParts[3].toLowerCase() === 'am' && hours === 12) {
+                hours = 0;
+              }
+            }
+            
+            date.setHours(hours, minutes, 0, 0);
+          }
+        }
+        
+        return date;
+      } catch (e) {
+        console.error('Error parsing CSV date:', dateStr, e);
+        return null;
+      }
+    }
+
+    // ============================================
+    // Data Fetching
+    // ============================================
+    
+    async function fetchAllData() {
+      const promises = [];
+      
+      if (state.settings.icsLink) {
+        promises.push(fetchICSData());
+      }
+      
+      if (state.settings.csvUrl) {
+        promises.push(fetchCSVData());
+      }
+      
+      await Promise.allSettled(promises);
+      
+      state.lastUpdate = new Date();
+      updateStatusBar();
+      renderEvents();
+    }
+
+    async function fetchICSData() {
+      try {
+        const response = await fetch(state.settings.icsLink);
+        if (!response.ok) throw new Error('Failed to fetch ICS');
+        
+        const content = await response.text();
+        const events = parseICS(content);
+        
+        // Cache the events
+        localStorage.setItem(STORAGE_KEYS.icsCache, JSON.stringify({
+          events: events,
+          timestamp: new Date().toISOString()
+        }));
+        
+        // Merge with existing events
+        state.events = mergeEvents(state.events.filter(e => e.source !== 'ics'), events);
+        state.isOnline = true;
+      } catch (e) {
+        console.error('Error fetching ICS:', e);
+        state.isOnline = false;
+        
+        // Load from cache
+        const cached = localStorage.getItem(STORAGE_KEYS.icsCache);
+        if (cached) {
+          const data = JSON.parse(cached);
+          state.events = mergeEvents(state.events.filter(e => e.source !== 'ics'), data.events);
+        }
+      }
+    }
+
+    async function fetchCSVData() {
+      try {
+        const response = await fetch(state.settings.csvUrl);
+        if (!response.ok) throw new Error('Failed to fetch CSV');
+        
+        const content = await response.text();
+        const events = parseCSV(content);
+        
+        // Cache the events
+        localStorage.setItem(STORAGE_KEYS.csvCache, JSON.stringify({
+          events: events,
+          timestamp: new Date().toISOString()
+        }));
+        
+        // Merge with existing events
+        state.events = mergeEvents(state.events.filter(e => e.source !== 'csv'), events);
+        state.isOnline = true;
+      } catch (e) {
+        console.error('Error fetching CSV:', e);
+        state.isOnline = false;
+        
+        // Load from cache
+        const cached = localStorage.getItem(STORAGE_KEYS.csvCache);
+        if (cached) {
+          const data = JSON.parse(cached);
+          state.events = mergeEvents(state.events.filter(e => e.source !== 'csv'), data.events);
+        }
+      }
+    }
+
+    function mergeEvents(existing, newEvents) {
+      const merged = [...existing];
+      
+      newEvents.forEach(newEvent => {
+        const existingIndex = merged.findIndex(e => e.id === newEvent.id);
+        if (existingIndex >= 0) {
+          merged[existingIndex] = newEvent;
+        } else {
+          merged.push(newEvent);
+        }
+      });
+      
+      return merged;
+    }
+
+    // ============================================
+    // Event Rendering
+    // ============================================
+    
+    function renderEvents() {
+      const filteredEvents = filterEventsByView();
+      const sortedEvents = sortEvents(filteredEvents);
+      
+      const tbody = document.getElementById('calendarBody');
+      tbody.innerHTML = '';
+      
+      if (sortedEvents.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="3" class="text-center py-16">
+              <div class="empty-state">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mb-4 opacity-50">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                <p class="text-xl font-medium mb-2">No Events Scheduled</p>
+                <p class="text-sm opacity-70">No events for the selected period</p>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+      
+      const transitionClass = getTransitionClass();
+      const speedDelay = getSpeedDelay();
+      
+      sortedEvents.forEach((event, index) => {
+        const status = getEventStatus(event);
+        const row = createEventRow(event, status, transitionClass, index * speedDelay);
+        tbody.appendChild(row);
+      });
+      
+      // Apply scroll animation if needed
+      applyScrollAnimation();
+      
+      // Update event count
+      document.getElementById('eventCount').textContent = `${sortedEvents.length} events`;
+    }
+
+    function filterEventsByView() {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      let startDate, endDate;
+      
+      switch (state.settings.viewMode) {
+        case 'day':
+          startDate = today;
+          endDate = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+          break;
+        case 'week':
+          startDate = new Date(today);
+          startDate.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
+          endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'month':
+          startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+          endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+          break;
+        default:
+          startDate = today;
+          endDate = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+      }
+      
+      // Include manual entries
+      const allEvents = [...state.events, ...state.manualEntries];
+      
+      return allEvents.filter(event => {
+        const eventStart = new Date(event.startDate);
+        const eventEnd = event.endDate ? new Date(event.endDate) : eventStart;
+        
+        // Event starts within range or ends within range or spans the range
+        return (eventStart >= startDate && eventStart < endDate) ||
+               (eventEnd >= startDate && eventEnd < endDate) ||
+               (eventStart <= startDate && eventEnd >= endDate);
+      });
+    }
+
+    function sortEvents(events) {
+      return events.sort((a, b) => {
+        const dateA = new Date(a.startDate);
+        const dateB = new Date(b.startDate);
+        
+        // All-day events first
+        if (a.isAllDay && !b.isAllDay) return -1;
+        if (!a.isAllDay && b.isAllDay) return 1;
+        
+        return dateA - dateB;
+      });
+    }
+
+    function getEventStatus(event) {
+      if (event.status === 'cancelled') return 'cancelled';
+      
+      const now = new Date();
+      const start = new Date(event.startDate);
+      const end = event.endDate ? new Date(event.endDate) : new Date(start.getTime() + 60 * 60 * 1000);
+      
+      if (event.isAllDay) {
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const eventDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        
+        if (eventDay.getTime() === today.getTime()) return 'ongoing';
+        if (eventDay < today) return 'completed';
+        return 'upcoming';
+      }
+      
+      if (now < start) return 'upcoming';
+      if (now >= start && now <= end) return 'ongoing';
+      return 'completed';
+    }
+
+    function createEventRow(event, status, transitionClass, delay) {
+      const tr = document.createElement('tr');
+      tr.className = `calendar-row ${transitionClass}`;
+      tr.style.animationDelay = `${delay}ms`;
+      
+      // Time column
+      const timeCell = document.createElement('td');
+      if (event.isAllDay) {
+        timeCell.innerHTML = '<span class="text-[var(--fg-muted)]">All Day</span>';
+      } else {
+        const startTime = formatTime(new Date(event.startDate));
+        const endTime = event.endDate ? formatTime(new Date(event.endDate)) : '';
+        timeCell.innerHTML = `
+          <div class="text-[var(--fg)]">${startTime}</div>
+          ${endTime ? `<div class="text-sm text-[var(--fg-muted)]">${endTime}</div>` : ''}
+        `;
+      }
+      
+      // Title column
+      const titleCell = document.createElement('td');
+      const titleClass = `text-${status}`;
+      titleCell.innerHTML = `
+        <div class="flex items-center gap-3">
+          <span class="status-dot status-${status}"></span>
+          <div class="marquee-container flex-1">
+            <span class="marquee-text font-medium ${titleClass}" data-title="${escapeHtml(event.title)}">${escapeHtml(event.title)}</span>
+          </div>
+        </div>
+      `;
+      
+      // Details column
+      const detailsCell = document.createElement('td');
+      const details = event.location || event.description || '—';
+      detailsCell.innerHTML = `<span class="text-[var(--fg-muted)]">${escapeHtml(details)}</span>`;
+      
+      tr.appendChild(timeCell);
+      tr.appendChild(titleCell);
+      tr.appendChild(detailsCell);
+      
+      return tr;
+    }
+
+    function formatTime(date) {
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function getTransitionClass() {
+      if (!state.settings.movementEnabled) return '';
+      
+      switch (state.settings.transitionStyle) {
+        case 'fade': return 'animate-fade';
+        case 'slideUp': return 'animate-slide-up';
+        case 'slideLeft': return 'animate-slide-left';
+        case 'static': 
+        default: return '';
+      }
+    }
+
+    function getSpeedDelay() {
+      switch (state.settings.transitionSpeed) {
+        case 'very-slow': return 200;
+        case 'slow': return 100;
+        case 'fast': return 30;
+        case 'custom': return state.settings.customSpeed * 20;
+        case 'normal':
+        default: return 50;
+      }
+    }
+
+    function applyScrollAnimation() {
+      const container = document.getElementById('scrollContainer');
+      container.classList.remove('auto-scroll');
+      
+      if (!state.settings.movementEnabled) return;
+      
+      if (state.settings.transitionStyle === 'autoScroll' || state.settings.transitionStyle === 'gentleScroll') {
+        const tbody = document.getElementById('calendarBody');
+        if (tbody.children.length > 5) {
+          const duration = state.settings.transitionStyle === 'gentleScroll' 
+            ? Math.max(60, tbody.children.length * 3)
+            : Math.max(30, tbody.children.length * 2);
+          
+          container.style.setProperty('--scroll-duration', `${duration}s`);
+          container.classList.add('auto-scroll');
+        }
+      }
+    }
+
+    // ============================================
+    // Date & Time Display
+    // ============================================
+    
+    function updateDateTime() {
+      const now = new Date();
+      
+      const dateOptions = { weekday: 'long', month: 'long', day: 'numeric' };
+      document.getElementById('dateDisplay').textContent = now.toLocaleDateString('en-US', dateOptions);
+      
+      const timeOptions = { hour: 'numeric', minute: '2-digit', hour12: true };
+      document.getElementById('timeDisplay').textContent = now.toLocaleTimeString('en-US', timeOptions);
+    }
+
+    function startClock() {
+      setInterval(updateDateTime, 1000);
+      setInterval(() => {
+        renderEvents(); // Re-render to update statuses
+      }, 60000); // Every minute
+    }
+
+    // ============================================
+    // Auto Refresh
+    // ============================================
+    
+    let refreshTimer = null;
+    let countdownTimer = null;
+    let countdownValue = 0;
+
+    function startAutoRefresh() {
+      stopAutoRefresh();
+      
+      const interval = state.settings.refreshInterval === 'custom' 
+        ? state.settings.customRefresh 
+        : parseInt(state.settings.refreshInterval);
+      
+      countdownValue = interval;
+      
+      refreshTimer = setInterval(() => {
+        fetchAllData();
+        countdownValue = interval;
+      }, interval * 1000);
+      
+      countdownTimer = setInterval(() => {
+        countdownValue--;
+        if (countdownValue < 0) countdownValue = interval;
+        updateRefreshCountdown();
+      }, 1000);
+    }
+
+    function stopAutoRefresh() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      if (countdownTimer) clearInterval(countdownTimer);
+    }
+
+    function updateRefreshCountdown() {
+      document.getElementById('nextRefresh').textContent = `Next refresh: ${countdownValue}s`;
+    }
+
+    function updateStatusBar() {
+      const indicator = document.getElementById('onlineIndicator');
+      const statusText = document.getElementById('statusText');
+      
+      if (state.isOnline) {
+        indicator.classList.remove('offline');
+        statusText.textContent = `Online - Last updated: ${formatTime(state.lastUpdate || new Date())}`;
+      } else {
+        indicator.classList.add('offline');
+        statusText.textContent = `Offline - Showing cached data`;
+      }
+    }
+
+    // ============================================
+    // Cursor Hiding
+    // ============================================
+    
+    function setupCursorHiding() {
+      document.addEventListener('mousemove', () => {
+        document.body.classList.remove('cursor-hidden');
+        
+        if (state.cursorTimeout) clearTimeout(state.cursorTimeout);
+        
+        state.cursorTimeout = setTimeout(() => {
+          if (!document.getElementById('settingsPanel').classList.contains('open')) {
+            document.body.classList.add('cursor-hidden');
+          }
+        }, 3000);
+      });
+    }
+
+    // ============================================
+    // Settings Panel
+    // ============================================
+    
+    function updateSettingsUI() {
+      document.getElementById('icsLink').value = state.settings.icsLink || '';
+      document.getElementById('csvUrl').value = state.settings.csvUrl || '';
+      document.getElementById('viewMode').value = state.settings.viewMode;
+      document.getElementById('transitionStyle').value = state.settings.transitionStyle;
+      document.getElementById('transitionSpeed').value = state.settings.transitionSpeed;
+      document.getElementById('refreshInterval').value = state.settings.refreshInterval === 'custom' ? 'custom' : state.settings.refreshInterval;
+      document.getElementById('pinSetting').value = state.settings.pin || '';
+      
+      // Update view tabs in main display
+      document.querySelectorAll('[data-view]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === state.settings.viewMode);
+      });
+      
+      // Update movement buttons
+      updateMovementButtons();
+      
+      // Render manual entries
+      renderManualEntries();
+      
+      // Show/hide custom inputs
+      if (state.settings.refreshInterval === 'custom') {
+        document.getElementById('customRefresh').classList.remove('hidden');
+        document.getElementById('customRefresh').value = state.settings.customRefresh;
+      }
+      
+      if (state.settings.transitionSpeed === 'custom') {
+        document.getElementById('customSpeed').classList.remove('hidden');
+        document.getElementById('customSpeed').value = state.settings.customSpeed;
+      }
+    }
+
+    function updateMovementButtons() {
+      const onBtn = document.getElementById('movementOn');
+      const offBtn = document.getElementById('movementOff');
+      
+      if (state.settings.movementEnabled) {
+        onBtn.classList.add('bg-[var(--accent)]', 'text-[var(--bg)]');
+        onBtn.classList.remove('bg-[var(--bg-card)]');
+        offBtn.classList.remove('bg-[var(--accent)]', 'text-[var(--bg)]');
+        offBtn.classList.add('bg-[var(--bg-card)]');
+      } else {
+        offBtn.classList.add('bg-[var(--accent)]', 'text-[var(--bg)]');
+        offBtn.classList.remove('bg-[var(--bg-card)]');
+        onBtn.classList.remove('bg-[var(--accent)]', 'text-[var(--bg)]');
+        onBtn.classList.add('bg-[var(--bg-card)]');
+      }
+    }
+
+    function renderManualEntries() {
+      const container = document.getElementById('entriesList');
+      
+      if (state.manualEntries.length === 0) {
+        container.innerHTML = '<p class="text-[var(--fg-muted)] text-sm">No manual entries</p>';
+        return;
+      }
+      
+      container.innerHTML = state.manualEntries.map((entry, index) => `
+        <div class="entry-card flex items-start justify-between gap-4">
+          <div class="flex-1 min-w-0">
+            <h5 class="font-medium truncate">${escapeHtml(entry.title)}</h5>
+            <p class="text-sm text-[var(--fg-muted)]">
+              ${formatDate(new Date(entry.startDate))}
+              ${entry.isAllDay ? '' : ` at ${formatTime(new Date(entry.startDate))}`}
+            </p>
+            ${entry.location ? `<p class="text-sm text-[var(--fg-muted)]">${escapeHtml(entry.location)}</p>` : ''}
+          </div>
+          <button class="text-[var(--completed)] hover:text-red-400 p-2" onclick="removeEntry(${index})" aria-label="Remove entry">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function formatDate(date) {
+      return date.toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    }
+
+    // ============================================
+    // Event Listeners
+    // ============================================
+    
+    function setupEventListeners() {
+      // Gear button - open settings
+      document.getElementById('gearBtn').addEventListener('click', () => {
+        if (state.settings.pin) {
+          document.getElementById('pinModal').classList.add('open');
+          document.getElementById('pinInput').focus();
+        } else {
+          openSettings();
+        }
+      });
+
+      // PIN Modal
+      document.getElementById('pinCancel').addEventListener('click', closePinModal);
+      document.getElementById('pinSubmit').addEventListener('click', verifyPin);
+      document.getElementById('pinInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') verifyPin();
+      });
+
+      // Settings panel
+      document.getElementById('closeSettings').addEventListener('click', closeSettings);
+      document.getElementById('settingsOverlay').addEventListener('click', closeSettings);
+
+      // Tab switching
+      document.querySelectorAll('[data-tab]').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      });
+
+      // View mode switching
+      document.querySelectorAll('[data-view]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.settings.viewMode = btn.dataset.view;
+          updateSettingsUI();
+          renderEvents();
+        });
+      });
+
+      // Movement toggle
+      document.getElementById('movementOn').addEventListener('click', () => {
+        state.settings.movementEnabled = true;
+        updateMovementButtons();
+      });
+
+      document.getElementById('movementOff').addEventListener('click', () => {
+        state.settings.movementEnabled = false;
+        updateMovementButtons();
+      });
+
+      // Refresh interval
+      document.getElementById('refreshInterval').addEventListener('change', (e) => {
+        const customInput = document.getElementById('customRefresh');
+        if (e.target.value === 'custom') {
+          customInput.classList.remove('hidden');
+        } else {
+          customInput.classList.add('hidden');
+        }
+      });
+
+      // Transition speed
+      document.getElementById('transitionSpeed').addEventListener('change', (e) => {
+        const customInput = document.getElementById('customSpeed');
+        if (e.target.value === 'custom') {
+          customInput.classList.remove('hidden');
+        } else {
+          customInput.classList.add('hidden');
+        }
+      });
+
+      // Refresh data button
+      document.getElementById('refreshData').addEventListener('click', () => {
+        fetchAllData();
+      });
+
+      // Add entry button
+      document.getElementById('addEntry').addEventListener('click', addManualEntry);
+
+      // CSV file upload
+      document.getElementById('csvFile').addEventListener('change', handleCSVUpload);
+
+      // Save settings
+      document.getElementById('saveSettings').addEventListener('click', saveSettings);
+
+      // Online/offline detection
+      window.addEventListener('online', () => {
+        state.isOnline = true;
+        fetchAllData();
+      });
+
+      window.addEventListener('offline', () => {
+        state.isOnline = false;
+        updateStatusBar();
+      });
+
+      // Keyboard navigation
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          if (document.getElementById('settingsPanel').classList.contains('open')) {
+            closeSettings();
+          } else if (document.getElementById('pinModal').classList.contains('open')) {
+            closePinModal();
+          }
+        }
+      });
+    }
+
+    function openSettings() {
+      document.getElementById('settingsPanel').classList.add('open');
+      document.getElementById('settingsOverlay').classList.add('open');
+      document.body.classList.remove('cursor-hidden');
+    }
+
+    function closeSettings() {
+      document.getElementById('settingsPanel').classList.remove('open');
+      document.getElementById('settingsOverlay').classList.remove('open');
+    }
+
+    function closePinModal() {
+      document.getElementById('pinModal').classList.remove('open');
+      document.getElementById('pinInput').value = '';
+      document.getElementById('pinError').classList.add('hidden');
+    }
+
+    function verifyPin() {
+      const input = document.getElementById('pinInput').value;
+      if (input === state.settings.pin) {
+        closePinModal();
+        openSettings();
+      } else {
+        document.getElementById('pinError').classList.remove('hidden');
+        document.getElementById('pinInput').value = '';
+        document.getElementById('pinInput').focus();
+      }
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll('[data-tab]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+      });
+      
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.add('hidden');
+      });
+      
+      document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+    }
+
+    function addManualEntry() {
+      const title = document.getElementById('entryTitle').value.trim();
+      const date = document.getElementById('entryDate').value;
+      const startTime = document.getElementById('entryStartTime').value;
+      const endTime = document.getElementById('entryEndTime').value;
+      const location = document.getElementById('entryLocation').value.trim();
+      const description = document.getElementById('entryDescription').value.trim();
+      
+      if (!title || !date) {
+        alert('Please enter a title and date');
+        return;
+      }
+      
+      const startDate = new Date(date);
+      if (startTime) {
+        const [hours, minutes] = startTime.split(':');
+        startDate.setHours(parseInt(hours), parseInt(minutes));
+      }
+      
+      let endDate = null;
+      if (endTime) {
+        endDate = new Date(date);
+        const [hours, minutes] = endTime.split(':');
+        endDate.setHours(parseInt(hours), parseInt(minutes));
+      }
+      
+      const entry = {
+        id: `manual-${Date.now()}`,
+        title,
+        startDate: startDate.toISOString(),
+        endDate: endDate ? endDate.toISOString() : null,
+        location,
+        description,
+        isAllDay: !startTime,
+        status: 'confirmed',
+        source: 'manual'
+      };
+      
+      state.manualEntries.push(entry);
+      saveToStorage();
+      renderManualEntries();
+      renderEvents();
+      
+      // Clear form
+      document.getElementById('entryTitle').value = '';
+      document.getElementById('entryDate').value = '';
+      document.getElementById('entryStartTime').value = '';
+      document.getElementById('entryEndTime').value = '';
+      document.getElementById('entryLocation').value = '';
+      document.getElementById('entryDescription').value = '';
+    }
+
+    window.removeEntry = function(index) {
+      state.manualEntries.splice(index, 1);
+      saveToStorage();
+      renderManualEntries();
+      renderEvents();
+    };
+
+    function handleCSVUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const content = event.target.result;
+        const events = parseCSV(content);
+        
+        // Cache the events
+        localStorage.setItem(STORAGE_KEYS.csvCache, JSON.stringify({
+          events: events,
+          timestamp: new Date().toISOString()
+        }));
+        
+        // Merge with existing events
+        state.events = mergeEvents(state.events.filter(e => e.source !== 'csv'), events);
+        renderEvents();
+      };
+      reader.readAsText(file);
+    }
+
+    function saveSettings() {
+      state.settings.icsLink = document.getElementById('icsLink').value.trim();
+      state.settings.csvUrl = document.getElementById('csvUrl').value.trim();
+      state.settings.viewMode = document.getElementById('viewMode').value;
+      state.settings.transitionStyle = document.getElementById('transitionStyle').value;
+      state.settings.transitionSpeed = document.getElementById('transitionSpeed').value;
+      state.settings.refreshInterval = document.getElementById('refreshInterval').value;
+      state.settings.pin = document.getElementById('pinSetting').value.trim();
+      
+      if (state.settings.refreshInterval === 'custom') {
+        state.settings.customRefresh = parseInt(document.getElementById('customRefresh').value) || 120;
+      }
+      
+      if (state.settings.transitionSpeed === 'custom') {
+        state.settings.customSpeed = parseInt(document.getElementById('customSpeed').value) || 5;
+      }
+      
+      saveToStorage();
+      startAutoRefresh();
+      fetchAllData();
+      closeSettings();
+      
+      // Apply view mode to main display
+      document.querySelectorAll('[data-view]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === state.settings.viewMode);
+      });
+    }
+
+    // ============================================
+    // Initialize the application
+    // ============================================
+    
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
