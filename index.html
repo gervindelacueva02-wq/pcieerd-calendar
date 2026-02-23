@@ -1007,9 +1007,14 @@
       renderEvents();
     }
 
-    async function fetchICSData() {
+      async function fetchICSData() {
+      if (!state.settings.icsLink) return;
+      
       try {
-        const response = await fetch(state.settings.icsLink);
+        // Use our backend proxy to avoid CORS errors
+        const proxyUrl = `/api/ics?url=${encodeURIComponent(state.settings.icsLink)}`;
+        
+        const response = await fetch(proxyUrl);
         if (!response.ok) throw new Error('Failed to fetch ICS');
         
         const content = await response.text();
@@ -1037,9 +1042,14 @@
       }
     }
 
-    async function fetchCSVData() {
+        async function fetchCSVData() {
+      if (!state.settings.csvUrl) return;
+      
       try {
-        const response = await fetch(state.settings.csvUrl);
+        // Use our backend proxy to avoid CORS errors (same as ICS)
+        const proxyUrl = `/api/ics?url=${encodeURIComponent(state.settings.csvUrl)}`;
+        
+        const response = await fetch(proxyUrl);
         if (!response.ok) throw new Error('Failed to fetch CSV');
         
         const content = await response.text();
@@ -1066,7 +1076,7 @@
         }
       }
     }
-
+    
     function mergeEvents(existing, newEvents) {
       const merged = [...existing];
       
