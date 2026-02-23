@@ -18,13 +18,10 @@
       --accent: #06b6d4;
       --accent-glow: rgba(6, 182, 212, 0.15);
       --border: #1e293b;
-      
-      /* Updated Default Status Colors */
-      --upcoming: #3b82f6;    /* Blue */
-      --ongoing: #10b981;     /* Green */
-      --completed: #9ca3af;   /* Gray (Finished) */
-      --cancelled: #6b7280;   /* Darker Gray */
-      
+      --upcoming: #3b82f6;
+      --ongoing: #10b981;
+      --completed: #9ca3af;
+      --cancelled: #6b7280;
       --dot-size: 10px;
     }
 
@@ -47,7 +44,6 @@
       font-family: 'Space Grotesk', sans-serif;
     }
 
-    /* Background pattern */
     .bg-pattern {
       position: fixed;
       inset: 0;
@@ -68,7 +64,6 @@
       z-index: -1;
     }
 
-    /* Status indicators */
     .status-dot {
       width: var(--dot-size);
       height: var(--dot-size);
@@ -86,7 +81,6 @@
     .text-completed { color: var(--completed); }
     .text-cancelled { color: var(--cancelled); }
 
-    /* Marquee animation */
     @keyframes marquee {
       0%, 20% { transform: translateX(0); }
       80%, 100% { transform: translateX(calc(-100% + 100% - 2rem)); }
@@ -114,7 +108,6 @@
       }
     }
 
-    /* Transition animations */
     @keyframes fadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
@@ -134,7 +127,6 @@
     .animate-slide-up { animation: slideUp 0.5s ease-out forwards; }
     .animate-slide-left { animation: slideLeft 0.5s ease-out forwards; }
 
-    /* Scroll container */
     .scroll-container {
       overflow-y: auto;
       overflow-x: hidden;
@@ -161,12 +153,11 @@
       }
     }
 
-    /* Settings panel */
     .settings-panel {
       position: fixed;
       top: 0;
-      right: -480px;
-      width: 480px;
+      right: -520px;
+      width: 520px;
       height: 100%;
       background: var(--bg-secondary);
       border-left: 1px solid var(--border);
@@ -194,7 +185,6 @@
       visibility: visible;
     }
 
-    /* Form elements */
     input, select, textarea {
       background: var(--bg-card);
       border: 1px solid var(--border);
@@ -229,7 +219,6 @@
       outline-offset: 2px;
     }
 
-    /* PIN Modal */
     .pin-modal {
       position: fixed;
       inset: 0;
@@ -254,7 +243,6 @@
       font-size: 1.5rem;
     }
 
-    /* Gear button */
     .gear-btn {
       position: fixed;
       top: 1rem;
@@ -277,7 +265,6 @@
       background: var(--bg-secondary);
     }
 
-    /* Table styles */
     .calendar-table {
       width: 100%;
       border-collapse: separate;
@@ -309,7 +296,6 @@
       background: rgba(255, 255, 255, 0.02);
     }
     
-    /* Week & Month Grid Layouts */
     .calendar-grid { 
       display: grid; 
       gap: 1px; 
@@ -366,7 +352,6 @@
     .today-cell { background: rgba(6, 182, 212, 0.05); }
     .today-date { color: var(--accent); }
 
-    /* View tabs */
     .view-tab {
       padding: 0.5rem 1.25rem;
       border-radius: 6px;
@@ -388,7 +373,6 @@
       color: var(--fg);
     }
 
-    /* Header date display */
     .date-header {
       font-size: clamp(2rem, 5vw, 4rem);
       font-weight: 700;
@@ -401,7 +385,6 @@
       color: var(--fg-muted);
     }
 
-    /* Manual entry card */
     .entry-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
@@ -414,7 +397,6 @@
       border-color: var(--accent);
     }
 
-    /* Empty state */
     .empty-state {
       display: flex;
       flex-direction: column;
@@ -424,7 +406,6 @@
       color: var(--fg-muted);
     }
 
-    /* Status bar */
     .status-bar {
       position: fixed;
       bottom: 0;
@@ -453,7 +434,6 @@
       background: var(--completed);
     }
 
-    /* Hide cursor after inactivity */
     .cursor-hidden {
       cursor: none;
     }
@@ -461,13 +441,61 @@
     .cursor-hidden * {
       cursor: none !important;
     }
+
+    /* Debug Panel Styles */
+    .debug-log {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 0.75rem;
+      line-height: 1.6;
+    }
+
+    .debug-log .log-entry {
+      padding: 0.25rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .debug-log .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .log-success { color: var(--ongoing); }
+    .log-error { color: #ef4444; }
+    .log-warning { color: #f59e0b; }
+    .log-info { color: var(--accent); }
+
+    .event-source-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-left: 0.5rem;
+    }
+
+    .source-ics { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+    .source-csv { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .source-manual { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+
+    .warning-banner {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
   </style>
 </head>
 <body>
   <div class="bg-pattern"></div>
   <div class="bg-grid"></div>
 
-  <!-- Gear Button -->
   <button class="gear-btn" id="gearBtn" aria-label="Open Settings">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="3"></circle>
@@ -475,7 +503,6 @@
     </svg>
   </button>
 
-  <!-- PIN Modal -->
   <div class="pin-modal" id="pinModal">
     <div class="bg-[var(--bg-card)] p-8 rounded-2xl border border-[var(--border)] w-80">
       <h3 class="font-display text-xl font-semibold mb-6 text-center">Enter PIN</h3>
@@ -488,10 +515,8 @@
     </div>
   </div>
 
-  <!-- Settings Overlay -->
   <div class="settings-overlay" id="settingsOverlay"></div>
 
-  <!-- Settings Panel -->
   <div class="settings-panel" id="settingsPanel">
     <div class="p-6">
       <div class="flex items-center justify-between mb-8">
@@ -503,20 +528,39 @@
         </button>
       </div>
 
-      <!-- Tabs -->
       <div class="flex gap-2 mb-6 p-1 bg-[var(--bg-card)] rounded-lg">
         <button class="view-tab active flex-1" data-tab="sources">Data Sources</button>
         <button class="view-tab flex-1" data-tab="display">Display</button>
         <button class="view-tab flex-1" data-tab="entries">Entries</button>
+        <button class="view-tab flex-1" data-tab="debug">Debug</button>
       </div>
 
       <!-- Data Sources Tab -->
       <div class="tab-content" id="tab-sources">
         <div class="space-y-6">
+          <div class="warning-banner">
+            <p class="text-sm text-amber-400 font-medium mb-2">Important: ICS Link Troubleshooting</p>
+            <ul class="text-xs text-amber-300/80 space-y-1">
+              <li>1. Make sure you're using the correct calendar's ICS link</li>
+              <li>2. Check if the calendar is shared/public</li>
+              <li>3. Verify events exist in the source calendar</li>
+              <li>4. Click "Test ICS Link" to diagnose issues</li>
+            </ul>
+          </div>
+
           <div>
             <label class="block text-sm font-medium mb-2">ICS Link (Outlook)</label>
             <input type="url" id="icsLink" placeholder="https://outlook.office365.com/owa/calendar/...">
             <p class="text-xs text-[var(--fg-muted)] mt-2">Paste your published Outlook ICS link</p>
+          </div>
+
+          <div class="flex gap-3">
+            <button class="flex-1 py-3 rounded-lg bg-amber-600 text-white font-medium hover:opacity-90" id="testIcsBtn">
+              Test ICS Link
+            </button>
+            <button class="flex-1 py-3 rounded-lg bg-[var(--accent)] text-[var(--bg)] font-medium hover:opacity-90" id="refreshData">
+              Refresh Data Now
+            </button>
           </div>
 
           <div>
@@ -541,10 +585,6 @@
             </select>
             <input type="number" id="customRefresh" class="mt-2 hidden" placeholder="Seconds" min="10" max="3600">
           </div>
-
-          <button class="w-full py-3 rounded-lg bg-[var(--accent)] text-[var(--bg)] font-medium hover:opacity-90" id="refreshData">
-            Refresh Data Now
-          </button>
         </div>
       </div>
 
@@ -560,7 +600,6 @@
             </select>
           </div>
 
-          <!-- New Date Settings -->
           <div>
             <label class="block text-sm font-medium mb-2">Date Format</label>
             <select id="dateFormat">
@@ -602,7 +641,6 @@
             <input type="number" id="customSpeed" class="mt-2 hidden" placeholder="Duration (seconds)" min="1" max="60">
           </div>
 
-          <!-- New Customization Settings -->
           <div class="pt-4 border-t border-[var(--border)]">
              <label class="block text-sm font-medium mb-4">Customization</label>
              
@@ -615,9 +653,13 @@
                 <label class="text-sm text-[var(--fg-muted)] block mb-2">Indicator Dot Size (px)</label>
                 <input type="number" id="dotSizeSetting" value="10" min="4" max="20">
              </div>
+
+             <div class="flex items-center justify-between mb-4">
+                <span class="text-sm text-[var(--fg-muted)]">Show Event Source Badge</span>
+                <input type="checkbox" id="showSourceBadge" class="w-5 h-5" checked>
+             </div>
           </div>
 
-          <!-- Color Settings -->
           <div class="pt-4 border-t border-[var(--border)]">
              <label class="block text-sm font-medium mb-4">Status Colors</label>
              
@@ -678,7 +720,65 @@
         </div>
       </div>
 
-      <!-- Save Button -->
+      <!-- Debug Tab -->
+      <div class="tab-content hidden" id="tab-debug">
+        <div class="space-y-6">
+          <div>
+            <h4 class="font-medium mb-4">System Information</h4>
+            <div class="bg-[var(--bg-card)] rounded-lg p-4 space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-[var(--fg-muted)]">Total Events Loaded:</span>
+                <span id="debugTotalEvents">0</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-[var(--fg-muted)]">ICS Events:</span>
+                <span id="debugIcsEvents">0</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-[var(--fg-muted)]">CSV Events:</span>
+                <span id="debugCsvEvents">0</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-[var(--fg-muted)]">Manual Events:</span>
+                <span id="debugManualEvents">0</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-[var(--fg-muted)]">Events Today:</span>
+                <span id="debugTodayEvents">0</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <h4 class="font-medium">Debug Log</h4>
+              <button class="px-3 py-1 text-xs rounded bg-[var(--bg-card)] border border-[var(--border)] hover:bg-[var(--border)]" id="clearDebugLog">
+                Clear Log
+              </button>
+            </div>
+            <div class="debug-log" id="debugLog">
+              <div class="text-[var(--fg-muted)]">Debug log will appear here...</div>
+            </div>
+          </div>
+
+          <div>
+            <h4 class="font-medium mb-4">All Events List</h4>
+            <div class="bg-[var(--bg-card)] rounded-lg p-4 max-h-64 overflow-y-auto" id="allEventsList">
+              <p class="text-[var(--fg-muted)] text-sm">No events loaded</p>
+            </div>
+          </div>
+
+          <div class="flex gap-3">
+            <button class="flex-1 py-3 rounded-lg bg-red-600 text-white font-medium hover:opacity-90" id="clearAllCache">
+              Clear All Cache
+            </button>
+            <button class="flex-1 py-3 rounded-lg bg-[var(--bg-card)] border border-[var(--border)] font-medium hover:bg-[var(--border)]" id="exportDebugInfo">
+              Export Debug Info
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="mt-8 pt-6 border-t border-[var(--border)]">
         <button class="w-full py-3 rounded-lg bg-[var(--ongoing)] text-white font-medium hover:opacity-90" id="saveSettings">
           Save and Apply
@@ -687,9 +787,7 @@
     </div>
   </div>
 
-  <!-- Main Display -->
   <main class="h-full flex flex-col" id="mainDisplay">
-    <!-- Header -->
     <header class="px-8 pt-8 pb-6">
       <div class="flex items-end justify-between">
         <div>
@@ -707,16 +805,13 @@
       </div>
     </header>
 
-    <!-- Calendar Content -->
     <div class="flex-1 px-8 pb-12 overflow-hidden" id="calendarContainer">
       <div class="scroll-container h-full" id="scrollContainer">
-         <!-- Dynamic View Container -->
          <div id="viewContainer"></div>
       </div>
     </div>
   </main>
 
-  <!-- Status Bar -->
   <div class="status-bar">
     <div class="flex items-center gap-2">
       <div class="status-indicator" id="onlineIndicator"></div>
@@ -731,9 +826,9 @@
   <script>
     // ============================================
     // PCIEERD Calendar Information System
+    // Enhanced with Debug Capabilities
     // ============================================
 
-    // State Management
     const state = {
       events: [],
       settings: {
@@ -747,10 +842,10 @@
         pin: '',
         customRefresh: 120,
         customSpeed: 5,
-        // New settings
         dateFormat: 'name',
         dotSize: 10,
         showDateWeek: true,
+        showSourceBadge: true,
         colors: {
             upcoming: '#3b82f6',
             ongoing: '#10b981',
@@ -761,10 +856,10 @@
       manualEntries: [],
       lastUpdate: null,
       isOnline: navigator.onLine,
-      cursorTimeout: null
+      cursorTimeout: null,
+      debugLog: []
     };
 
-    // Local Storage Keys
     const STORAGE_KEYS = {
       settings: 'pcieerd_settings',
       manualEntries: 'pcieerd_manual_entries',
@@ -773,92 +868,100 @@
     };
 
     // ============================================
-    // Initialization
+    // Debug Logging
     // ============================================
     
-    function init() {
-      loadFromStorage();
-      applyColors();
-      renderEvents();
-      updateDateTime();
-      startClock();
-      setupEventListeners();
-      startAutoRefresh();
-      setupCursorHiding();
+    function log(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const entry = { timestamp, message, type };
+      state.debugLog.unshift(entry);
       
-      // Initial data fetch
-      if (state.settings.icsLink || state.settings.csvUrl) {
-        fetchAllData();
+      // Keep only last 100 entries
+      if (state.debugLog.length > 100) {
+        state.debugLog = state.debugLog.slice(0, 100);
       }
+      
+      // Also log to console
+      const consoleMethod = type === 'error' ? 'error' : type === 'warning' ? 'warn' : 'log';
+      console[consoleMethod](`[${timestamp}] [${type.toUpperCase()}] ${message}`);
+      
+      updateDebugUI();
     }
 
-    function loadFromStorage() {
-      try {
-        const settings = localStorage.getItem(STORAGE_KEYS.settings);
-        if (settings) {
-            const saved = JSON.parse(settings);
-            // Deep merge for colors
-            if(saved.colors) Object.assign(state.settings.colors, saved.colors);
-            delete saved.colors; 
-            Object.assign(state.settings, saved);
-        }
+    function updateDebugUI() {
+      const debugLogEl = document.getElementById('debugLog');
+      if (!debugLogEl) return;
 
-        const manualEntries = localStorage.getItem(STORAGE_KEYS.manualEntries);
-        if (manualEntries) {
-          state.manualEntries = JSON.parse(manualEntries);
-        }
-
-        const icsCache = localStorage.getItem(STORAGE_KEYS.icsCache);
-        if (icsCache) {
-          const cached = JSON.parse(icsCache);
-          if (cached.events) {
-            state.events = mergeEvents(state.events, cached.events);
-          }
-        }
-
-        const csvCache = localStorage.getItem(STORAGE_KEYS.csvCache);
-        if (csvCache) {
-          const cached = JSON.parse(csvCache);
-          if (cached.events) {
-            state.events = mergeEvents(state.events, cached.events);
-          }
-        }
-      } catch (e) {
-        console.error('Error loading from storage:', e);
+      if (state.debugLog.length === 0) {
+        debugLogEl.innerHTML = '<div class="text-[var(--fg-muted)]">Debug log will appear here...</div>';
+        return;
       }
 
-      // Update UI with loaded settings
-      updateSettingsUI();
+      debugLogEl.innerHTML = state.debugLog.map(entry => {
+        const typeClass = `log-${entry.type}`;
+        return `<div class="log-entry ${typeClass}"><span class="opacity-50">[${entry.timestamp}]</span> ${escapeHtml(entry.message)}</div>`;
+      }).join('');
     }
 
-    function saveToStorage() {
-      try {
-        localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(state.settings));
-        localStorage.setItem(STORAGE_KEYS.manualEntries, JSON.stringify(state.manualEntries));
-      } catch (e) {
-        console.error('Error saving to storage:', e);
+    function updateEventStats() {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      const total = state.events.length + state.manualEntries.length;
+      const icsEvents = state.events.filter(e => e.source === 'ics').length;
+      const csvEvents = state.events.filter(e => e.source === 'csv').length;
+      const manualEvents = state.manualEntries.length;
+      
+      const todayEvents = [...state.events, ...state.manualEntries].filter(e => {
+        const eventDate = new Date(e.startDate);
+        return eventDate.toDateString() === today.toDateString();
+      }).length;
+
+      document.getElementById('debugTotalEvents').textContent = total;
+      document.getElementById('debugIcsEvents').textContent = icsEvents;
+      document.getElementById('debugCsvEvents').textContent = csvEvents;
+      document.getElementById('debugManualEvents').textContent = manualEvents;
+      document.getElementById('debugTodayEvents').textContent = todayEvents;
+
+      // Update all events list
+      const allEventsList = document.getElementById('allEventsList');
+      if (allEventsList) {
+        const allEvents = [...state.events, ...state.manualEntries].sort((a, b) => 
+          new Date(a.startDate) - new Date(b.startDate)
+        );
+
+        if (allEvents.length === 0) {
+          allEventsList.innerHTML = '<p class="text-[var(--fg-muted)] text-sm">No events loaded</p>';
+        } else {
+          allEventsList.innerHTML = allEvents.map(e => {
+            const sourceClass = `source-${e.source}`;
+            const date = new Date(e.startDate);
+            return `<div class="text-xs py-2 border-b border-[var(--border)] last:border-0">
+              <div class="font-medium">${escapeHtml(e.title)}</div>
+              <div class="text-[var(--fg-muted)]">
+                ${date.toLocaleDateString()} ${e.isAllDay ? '(All Day)' : date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                <span class="event-source-badge ${sourceClass}">${e.source}</span>
+              </div>
+            </div>`;
+          }).join('');
+        }
       }
-    }
-
-    function applyColors() {
-        const root = document.documentElement;
-        root.style.setProperty('--upcoming', state.settings.colors.upcoming);
-        root.style.setProperty('--ongoing', state.settings.colors.ongoing);
-        root.style.setProperty('--completed', state.settings.colors.completed);
-        root.style.setProperty('--cancelled', state.settings.colors.cancelled);
-        root.style.setProperty('--dot-size', state.settings.dotSize + 'px');
     }
 
     // ============================================
-    // ICS Parser (FIXED FOR OUTLOOK ACCURACY)
+    // Enhanced ICS Parser
     // ============================================
     
     function parseICS(icsContent) {
+      log('Starting ICS parsing...', 'info');
       const events = [];
       const lines = icsContent.split(/\r?\n/);
       let currentEvent = null;
       let currentKey = null;
       let currentValue = '';
+      let eventCount = 0;
+
+      log(`ICS file has ${lines.length} lines`, 'info');
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -886,46 +989,112 @@
         const fullKey = line.slice(0, colonIndex);
         currentValue = line.slice(colonIndex + 1);
         
-        // Key might contain parameters e.g. DTSTART;TZID=...
-        // We keep the full key with params to preserve timezone info if needed later
+        // Extract key name (before any semicolon parameters)
         const keyParts = fullKey.split(';');
-        currentKey = keyParts[0]; // Store base key (DTSTART)
+        currentKey = keyParts[0];
+
+        // Store full key with parameters for date parsing
+        if (currentKey === 'DTSTART' || currentKey === 'DTEND') {
+          currentEvent = currentEvent || {};
+          currentEvent[fullKey] = currentValue;
+          currentEvent[`${currentKey}_FULLKEY`] = fullKey;
+        }
 
         if (currentKey === 'BEGIN' && currentValue === 'VEVENT') {
           currentEvent = {};
+          eventCount++;
         } else if (currentKey === 'END' && currentValue === 'VEVENT') {
           if (currentEvent) {
             const event = processICSEvent(currentEvent);
             if (event) {
               events.push(event);
+              log(`Parsed event: "${event.title}" on ${new Date(event.startDate).toLocaleDateString()}`, 'success');
             }
           }
           currentEvent = null;
         }
       }
 
+      log(`ICS parsing complete. Found ${eventCount} VEVENT blocks, successfully parsed ${events.length} events`, 'info');
       return events;
     }
 
     function processICSEvent(raw) {
       try {
-        const summary = raw['SUMMARY'] || 'Untitled Event';
-        const location = raw['LOCATION'] || '';
-        const description = raw['DESCRIPTION'] || '';
-        const status = raw['STATUS'] || '';
-        const uid = raw['UID'] || '';
+        // Get summary/title
+        const summary = raw['SUMMARY'] || raw['summary'] || 'Untitled Event';
+        const location = raw['LOCATION'] || raw['location'] || '';
+        const description = raw['DESCRIPTION'] || raw['description'] || '';
+        const status = raw['STATUS'] || raw['status'] || '';
+        const uid = raw['UID'] || raw['uid'] || '';
         
-        // Parse dates - try multiple keys for flexibility
-        let startDate = parseICSDate(raw['DTSTART'], raw['DTSTART;VALUE=DATE']);
-        let endDate = parseICSDate(raw['DTEND'], raw['DTEND;VALUE=DATE']);
+        // Check if this is a cancelled instance of a recurring event
+        if (raw['RECURRENCE-ID']) {
+          log(`Event "${summary}" is a modified instance of a recurring event`, 'info');
+        }
         
-        if (!startDate) return null;
+        // Check for RRULE (recurring event)
+        if (raw['RRULE']) {
+          log(`Event "${summary}" has RRULE (recurring): ${raw['RRULE']}`, 'info');
+        }
 
-        // Check for all-day events
-        const isAllDay = raw['DTSTART;VALUE=DATE'] || (raw['DTSTART'] && raw['DTSTART'].length === 8);
+        // Parse start date - try multiple possible keys
+        let startDate = null;
+        let startDateKey = null;
         
-        return {
-          id: uid || `ics-${Date.now()}-${Math.random()}`,
+        // Find DTSTART key (might have parameters like DTSTART;TZID=...)
+        for (const key in raw) {
+          if (key === 'DTSTART' || key.startsWith('DTSTART;')) {
+            startDateKey = key;
+            break;
+          }
+        }
+        
+        if (startDateKey) {
+          startDate = parseICSDate(raw[startDateKey], startDateKey);
+          if (!startDate) {
+            log(`Failed to parse start date for event "${summary}": ${raw[startDateKey]}`, 'warning');
+          }
+        } else {
+          log(`No DTSTART found for event "${summary}"`, 'warning');
+        }
+        
+        // Parse end date
+        let endDate = null;
+        let endDateKey = null;
+        
+        for (const key in raw) {
+          if (key === 'DTEND' || key.startsWith('DTEND;')) {
+            endDateKey = key;
+            break;
+          }
+        }
+        
+        if (endDateKey) {
+          endDate = parseICSDate(raw[endDateKey], endDateKey);
+        }
+        
+        if (!startDate) {
+          log(`Skipping event "${summary}" - no valid start date`, 'error');
+          return null;
+        }
+
+        // Determine if all-day event
+        const isAllDay = startDateKey && startDateKey.includes('VALUE=DATE') || 
+                         (raw[startDateKey] && raw[startDateKey].length === 8);
+
+        // Check visibility/transparency
+        const transparency = raw['TRANSP'] || raw['transp'] || '';
+        const visibility = raw['CLASS'] || raw['class'] || '';
+        
+        // Skip private/confidential events if needed
+        if (visibility.toLowerCase() === 'private' || visibility.toLowerCase() === 'confidential') {
+          log(`Skipping private/confidential event: "${summary}"`, 'info');
+          return null;
+        }
+
+        const event = {
+          id: uid || `ics-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           title: summary,
           startDate: startDate.toISOString(),
           endDate: endDate ? endDate.toISOString() : null,
@@ -933,57 +1102,151 @@
           description: description,
           isAllDay: !!isAllDay,
           status: status.toLowerCase() === 'cancelled' ? 'cancelled' : 'confirmed',
-          source: 'ics'
+          source: 'ics',
+          raw: raw // Keep raw data for debugging
         };
+
+        // Handle recurring events (basic expansion for next 30 days)
+        if (raw['RRULE'] && !raw['RECURRENCE-ID']) {
+          const expandedEvents = expandRecurringEvent(event, raw['RRULE']);
+          if (expandedEvents.length > 1) {
+            log(`Expanded recurring event "${summary}" into ${expandedEvents.length} instances`, 'info');
+          }
+          return expandedEvents.length > 0 ? expandedEvents : event;
+        }
+
+        return event;
       } catch (e) {
-        console.error('Error processing ICS event:', e);
+        log(`Error processing ICS event: ${e.message}`, 'error');
+        console.error('Error processing ICS event:', e, raw);
         return null;
       }
     }
 
-    function parseICSDate(dtValue, dateValue) {
-      const value = dateValue || dtValue;
-      if (!value) return null;
+    function parseICSDate(dateValue, keyWithParams) {
+      if (!dateValue) return null;
 
-      // Remove any parameters (e.g. TZID=...)
-      const dateStr = value.includes(':') ? value.split(':').pop() : value;
-      
       try {
+        // Check for VALUE=DATE parameter (all-day event)
+        const isDateOnly = keyWithParams && keyWithParams.includes('VALUE=DATE');
+        
+        // Remove any parameters from the value itself
+        let cleanValue = dateValue;
+        if (cleanValue.includes(':')) {
+          cleanValue = cleanValue.split(':').pop();
+        }
+
         // All-day event (YYYYMMDD)
-        if (dateStr.length === 8) {
-          return new Date(
-            parseInt(dateStr.slice(0, 4)),
-            parseInt(dateStr.slice(4, 6)) - 1,
-            parseInt(dateStr.slice(6, 8))
-          );
+        if (cleanValue.length === 8 || isDateOnly) {
+          const year = parseInt(cleanValue.slice(0, 4));
+          const month = parseInt(cleanValue.slice(4, 6)) - 1;
+          const day = parseInt(cleanValue.slice(6, 8));
+          return new Date(year, month, day);
         }
         
-        // DateTime (YYYYMMDDTHHMMSSZ or YYYYMMDDTHHMMSS)
-        if (dateStr.includes('T')) {
-          const isUTC = dateStr.endsWith('Z');
-          const cleanStr = dateStr.replace(/Z$/, '');
-          const year = parseInt(cleanStr.slice(0, 4));
-          const month = parseInt(cleanStr.slice(4, 6)) - 1;
-          const day = parseInt(cleanStr.slice(6, 8));
-          const hour = parseInt(cleanStr.slice(9, 11));
-          const minute = parseInt(cleanStr.slice(11, 13));
-          const second = parseInt(cleanStr.slice(13, 15) || '0');
+        // DateTime format
+        if (cleanValue.includes('T')) {
+          const isUTC = cleanValue.endsWith('Z');
+          const noZ = cleanValue.replace(/Z$/, '');
           
+          const year = parseInt(noZ.slice(0, 4));
+          const month = parseInt(noZ.slice(4, 6)) - 1;
+          const day = parseInt(noZ.slice(6, 8));
+          const hour = parseInt(noZ.slice(9, 11) || '0');
+          const minute = parseInt(noZ.slice(11, 13) || '0');
+          const second = parseInt(noZ.slice(13, 15) || '0');
+          
+          // Check for TZID parameter
+          let tzid = null;
+          if (keyWithParams && keyWithParams.includes('TZID=')) {
+            const tzidMatch = keyWithParams.match(/TZID=([^;:]+)/);
+            if (tzidMatch) {
+              tzid = tzidMatch[1];
+            }
+          }
+
           if (isUTC) {
-             // If UTC flag 'Z' is present, use UTC time
-             return new Date(Date.UTC(year, month, day, hour, minute, second));
+            return new Date(Date.UTC(year, month, day, hour, minute, second));
+          } else if (tzid) {
+            // If TZID is specified, treat as local time in that timezone
+            // For simplicity, we'll treat it as local time
+            // In production, you'd want to use a library like moment-timezone
+            log(`Event has TZID=${tzid}, treating as local time`, 'info');
+            return new Date(year, month, day, hour, minute, second);
           } else {
-             // If NO 'Z', treat as Local Time (Floating Time)
-             // This prevents time shifts for Outlook events
-             return new Date(year, month, day, hour, minute, second);
+            // No timezone info - treat as local time
+            return new Date(year, month, day, hour, minute, second);
           }
         }
         
         return null;
       } catch (e) {
-        console.error('Error parsing date:', dateStr, e);
+        log(`Error parsing date "${dateValue}": ${e.message}`, 'error');
         return null;
       }
+    }
+
+    // Basic recurring event expansion
+    function expandRecurringEvent(baseEvent, rrule) {
+      const events = [baseEvent];
+      
+      // Basic RRULE parsing (handles simple FREQ=DAILY/WEEKLY/MONTHLY)
+      const freqMatch = rrule.match(/FREQ=(DAILY|WEEKLY|MONTHLY)/i);
+      const countMatch = rrule.match(/COUNT=(\d+)/i);
+      const untilMatch = rrule.match(/UNTIL=(\d+)/i);
+      const intervalMatch = rrule.match(/INTERVAL=(\d+)/i);
+      
+      if (!freqMatch) return events;
+      
+      const freq = freqMatch[1].toUpperCase();
+      const interval = intervalMatch ? parseInt(intervalMatch[1]) : 1;
+      const maxCount = countMatch ? parseInt(countMatch[1]) : 30; // Default to 30 occurrences
+      const untilDate = untilMatch ? parseICSDate(untilMatch[1], '') : null;
+      
+      const startDate = new Date(baseEvent.startDate);
+      const endDate = baseEvent.endDate ? new Date(baseEvent.endDate) : null;
+      
+      let count = 1;
+      let currentDate = new Date(startDate);
+      
+      while (count < maxCount) {
+        // Calculate next occurrence
+        switch (freq) {
+          case 'DAILY':
+            currentDate.setDate(currentDate.getDate() + interval);
+            break;
+          case 'WEEKLY':
+            currentDate.setDate(currentDate.getDate() + (7 * interval));
+            break;
+          case 'MONTHLY':
+            currentDate.setMonth(currentDate.getMonth() + interval);
+            break;
+          default:
+            return events;
+        }
+        
+        // Check UNTIL date
+        if (untilDate && currentDate > untilDate) {
+          break;
+        }
+        
+        // Don't expand too far into the future (limit to 1 year)
+        if (currentDate > new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)) {
+          break;
+        }
+        
+        const newEvent = {
+          ...baseEvent,
+          id: `${baseEvent.id}-${count}`,
+          startDate: currentDate.toISOString(),
+          endDate: endDate ? new Date(currentDate.getTime() + (endDate.getTime() - startDate.getTime())).toISOString() : null
+        };
+        
+        events.push(newEvent);
+        count++;
+      }
+      
+      return events;
     }
 
     // ============================================
@@ -991,12 +1254,17 @@
     // ============================================
     
     function parseCSV(csvContent) {
+      log('Starting CSV parsing...', 'info');
       const events = [];
       const lines = csvContent.split(/\r?\n/).filter(line => line.trim());
       
-      if (lines.length < 2) return events;
+      if (lines.length < 2) {
+        log('CSV file has no data rows', 'warning');
+        return events;
+      }
       
       const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
+      log(`CSV headers: ${headers.join(', ')}`, 'info');
       
       for (let i = 1; i < lines.length; i++) {
         const values = parseCSVLine(lines[i]);
@@ -1010,9 +1278,11 @@
         const event = processCSVEvent(row);
         if (event) {
           events.push(event);
+          log(`Parsed CSV event: "${event.title}"`, 'success');
         }
       }
       
+      log(`CSV parsing complete. Parsed ${events.length} events from ${lines.length - 1} rows`, 'info');
       return events;
     }
 
@@ -1040,24 +1310,27 @@
 
     function processCSVEvent(row) {
       try {
-        const title = row['title'] || row['event'] || row['name'] || 'Untitled';
-        const dateStr = row['start date'] || row['date'] || '';
-        const startTime = row['start time'] || '';
-        const endTime = row['end time'] || row['end date'] ? row['end time'] || '' : '';
-        const endDateStr = row['end date'] || dateStr;
-        const location = row['location'] || row['room'] || '';
-        const description = row['description'] || row['details'] || '';
+        const title = row['title'] || row['event'] || row['name'] || row['subject'] || 'Untitled';
+        const dateStr = row['start date'] || row['date'] || row['start_date'] || '';
+        const startTime = row['start time'] || row['start_time'] || '';
+        const endTime = row['end time'] || row['end_time'] || '';
+        const endDateStr = row['end date'] || row['end_date'] || dateStr;
+        const location = row['location'] || row['room'] || row['venue'] || '';
+        const description = row['description'] || row['details'] || row['notes'] || '';
         const status = row['status'] || 'confirmed';
         
         const startDate = parseCSVDate(dateStr, startTime);
         const endDate = parseCSVDate(endDateStr, endTime);
         
-        if (!startDate) return null;
+        if (!startDate) {
+          log(`Skipping CSV event "${title}" - invalid date`, 'warning');
+          return null;
+        }
         
         const isAllDay = !startTime || startTime.toLowerCase() === 'all day';
         
         return {
-          id: `csv-${Date.now()}-${Math.random()}`,
+          id: `csv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           title: title,
           startDate: startDate.toISOString(),
           endDate: endDate ? endDate.toISOString() : null,
@@ -1068,7 +1341,7 @@
           source: 'csv'
         };
       } catch (e) {
-        console.error('Error processing CSV event:', e);
+        log(`Error processing CSV event: ${e.message}`, 'error');
         return null;
       }
     }
@@ -1077,31 +1350,26 @@
       if (!dateStr) return null;
       
       try {
-        // Try various date formats
         let date;
         const cleanDate = dateStr.trim();
         
-        // ISO format: YYYY-MM-DD
         if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
           date = new Date(cleanDate);
-        }
-        // US format: MM/DD/YYYY
-        else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(cleanDate)) {
+        } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(cleanDate)) {
           const parts = cleanDate.split('/');
           date = new Date(parts[2], parseInt(parts[0]) - 1, parts[1]);
-        }
-        // European format: DD/MM/YYYY
-        else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(cleanDate)) {
-          const parts = cleanDate.split('/');
-          date = new Date(parts[2], parseInt(parts[1]) - 1, parts[0]);
-        }
-        else {
+        } else if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(cleanDate)) {
+          const parts = cleanDate.split('-');
+          date = new Date(parts[2], parseInt(parts[0]) - 1, parts[1]);
+        } else {
           date = new Date(cleanDate);
         }
         
-        if (isNaN(date.getTime())) return null;
+        if (isNaN(date.getTime())) {
+          log(`Invalid date: ${cleanDate}`, 'warning');
+          return null;
+        }
         
-        // Add time if provided
         if (timeStr && timeStr.toLowerCase() !== 'all day') {
           const timeParts = timeStr.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
           if (timeParts) {
@@ -1122,16 +1390,17 @@
         
         return date;
       } catch (e) {
-        console.error('Error parsing CSV date:', dateStr, e);
+        log(`Error parsing date "${dateStr}": ${e.message}`, 'error');
         return null;
       }
     }
 
     // ============================================
-    // Data Fetching
+    // Data Fetching with Proxy
     // ============================================
     
     async function fetchAllData() {
+      log('Starting data fetch...', 'info');
       const promises = [];
       
       if (state.settings.icsLink) {
@@ -1142,80 +1411,178 @@
         promises.push(fetchCSVData());
       }
       
+      if (promises.length === 0) {
+        log('No data sources configured', 'warning');
+      }
+      
       await Promise.allSettled(promises);
       
       state.lastUpdate = new Date();
       updateStatusBar();
       renderEvents();
+      updateEventStats();
     }
 
-      async function fetchICSData() {
+    async function fetchICSData() {
       if (!state.settings.icsLink) return;
       
+      log(`Fetching ICS from: ${state.settings.icsLink.substring(0, 50)}...`, 'info');
+      
       try {
-        // Use our backend proxy to avoid CORS errors
-        const proxyUrl = `/api/ics?url=${encodeURIComponent(state.settings.icsLink)}`;
+        // Try direct fetch first (for CORS-enabled servers)
+        let response;
+        try {
+          response = await fetch(state.settings.icsLink);
+        } catch (directError) {
+          log('Direct fetch failed, trying proxy...', 'warning');
+          // Try with a CORS proxy
+          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(state.settings.icsLink)}`;
+          response = await fetch(proxyUrl);
+        }
         
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error('Failed to fetch ICS');
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
         
         const content = await response.text();
+        log(`ICS response received: ${content.length} bytes`, 'info');
+        
+        // Log first few lines for debugging
+        const firstLines = content.split('\n').slice(0, 5).join('\n');
+        log(`ICS preview:\n${firstLines}`, 'info');
+        
         const events = parseICS(content);
         
-        // Cache the events
+        // Flatten any arrays from recurring events
+        const flatEvents = events.flat();
+        
         localStorage.setItem(STORAGE_KEYS.icsCache, JSON.stringify({
-          events: events,
+          events: flatEvents,
           timestamp: new Date().toISOString()
         }));
         
-        // Merge with existing events
-        state.events = mergeEvents(state.events.filter(e => e.source !== 'ics'), events);
+        state.events = mergeEvents(state.events.filter(e => e.source !== 'ics'), flatEvents);
         state.isOnline = true;
+        
+        log(`Successfully loaded ${flatEvents.length} ICS events`, 'success');
       } catch (e) {
-        console.error('Error fetching ICS:', e);
+        log(`Error fetching ICS: ${e.message}`, 'error');
         state.isOnline = false;
         
-        // Load from cache
         const cached = localStorage.getItem(STORAGE_KEYS.icsCache);
         if (cached) {
           const data = JSON.parse(cached);
           state.events = mergeEvents(state.events.filter(e => e.source !== 'ics'), data.events);
+          log(`Loaded ${data.events.length} events from cache`, 'warning');
         }
       }
     }
 
-        async function fetchCSVData() {
+    async function fetchCSVData() {
       if (!state.settings.csvUrl) return;
       
+      log(`Fetching CSV from: ${state.settings.csvUrl.substring(0, 50)}...`, 'info');
+      
       try {
-        // Use our backend proxy to avoid CORS errors (same as ICS)
-        const proxyUrl = `/api/ics?url=${encodeURIComponent(state.settings.csvUrl)}`;
+        let response;
+        try {
+          response = await fetch(state.settings.csvUrl);
+        } catch (directError) {
+          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(state.settings.csvUrl)}`;
+          response = await fetch(proxyUrl);
+        }
         
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error('Failed to fetch CSV');
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
         
         const content = await response.text();
         const events = parseCSV(content);
         
-        // Cache the events
         localStorage.setItem(STORAGE_KEYS.csvCache, JSON.stringify({
           events: events,
           timestamp: new Date().toISOString()
         }));
         
-        // Merge with existing events
         state.events = mergeEvents(state.events.filter(e => e.source !== 'csv'), events);
         state.isOnline = true;
+        
+        log(`Successfully loaded ${events.length} CSV events`, 'success');
       } catch (e) {
-        console.error('Error fetching CSV:', e);
+        log(`Error fetching CSV: ${e.message}`, 'error');
         state.isOnline = false;
         
-        // Load from cache
         const cached = localStorage.getItem(STORAGE_KEYS.csvCache);
         if (cached) {
           const data = JSON.parse(cached);
           state.events = mergeEvents(state.events.filter(e => e.source !== 'csv'), data.events);
+          log(`Loaded ${data.events.length} CSV events from cache`, 'warning');
         }
+      }
+    }
+
+    async function testICSLink() {
+      const icsLink = document.getElementById('icsLink').value.trim();
+      if (!icsLink) {
+        alert('Please enter an ICS link first');
+        return;
+      }
+
+      log('=== Testing ICS Link ===', 'info');
+      log(`URL: ${icsLink}`, 'info');
+
+      try {
+        let response;
+        
+        // Try direct fetch
+        log('Attempting direct fetch...', 'info');
+        try {
+          response = await fetch(icsLink, { method: 'GET' });
+          log(`Direct fetch response: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'warning');
+        } catch (directError) {
+          log(`Direct fetch failed: ${directError.message}`, 'warning');
+          log('Trying CORS proxy...', 'info');
+          
+          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(icsLink)}`;
+          response = await fetch(proxyUrl);
+          log(`Proxy fetch response: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+        }
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const content = await response.text();
+        log(`Response size: ${content.length} bytes`, 'info');
+        
+        // Check if it's valid ICS
+        if (!content.includes('BEGIN:VCALENDAR')) {
+          log('Response does not appear to be a valid ICS file (missing BEGIN:VCALENDAR)', 'error');
+          log(`First 200 chars: ${content.substring(0, 200)}`, 'info');
+          return;
+        }
+
+        // Count events
+        const veventCount = (content.match(/BEGIN:VEVENT/g) || []).length;
+        log(`Found ${veventCount} VEVENT blocks in ICS file`, veventCount > 0 ? 'success' : 'warning');
+
+        // Parse and show sample events
+        const events = parseICS(content);
+        const flatEvents = events.flat();
+        log(`Successfully parsed ${flatEvents.length} events`, 'success');
+
+        if (flatEvents.length > 0) {
+          log('Sample events:', 'info');
+          flatEvents.slice(0, 5).forEach((e, i) => {
+            log(`  ${i + 1}. "${e.title}" - ${new Date(e.startDate).toLocaleString()}`, 'info');
+          });
+        }
+
+        alert(`ICS Test Complete!\n\nFound ${veventCount} events in calendar.\nParsed ${flatEvents.length} events successfully.\n\nCheck Debug tab for details.`);
+
+      } catch (e) {
+        log(`Test failed: ${e.message}`, 'error');
+        alert(`ICS Test Failed!\n\nError: ${e.message}\n\nCheck Debug tab for details.`);
       }
     }
     
@@ -1240,12 +1607,11 @@
     
     function renderEvents() {
       const viewContainer = document.getElementById('viewContainer');
-      viewContainer.innerHTML = ''; // Clear previous
+      viewContainer.innerHTML = '';
 
       const filteredEvents = filterEventsByView();
       const sortedEvents = sortEvents(filteredEvents);
       
-      // Render based on View Mode
       switch(state.settings.viewMode) {
           case 'week':
               renderWeekView(viewContainer, sortedEvents);
@@ -1273,7 +1639,7 @@
             const speedDelay = getSpeedDelay();
             events.forEach((event, index) => {
               const status = getEventStatus(event);
-              const row = createEventRow(event, status, transitionClass, index * speedDelay, false);
+              const row = createEventRow(event, status, transitionClass, index * speedDelay);
               tbody.appendChild(row);
             });
         }
@@ -1287,11 +1653,11 @@
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
+        startOfWeek.setDate(today.getDate() - today.getDay());
 
         const grid = document.createElement('div');
         grid.className = 'calendar-grid week-view';
-        grid.style.height = 'calc(100vh - 200px)'; // Adjust height
+        grid.style.height = 'calc(100vh - 200px)';
 
         for (let i = 0; i < 7; i++) {
             const currentDay = new Date(startOfWeek);
@@ -1302,19 +1668,16 @@
             const cell = document.createElement('div');
             cell.className = `grid-cell ${isToday ? 'today-cell' : ''}`;
             
-            // Header
             const header = document.createElement('div');
             header.className = 'grid-cell-header';
             header.textContent = currentDay.toLocaleDateString('en-US', { weekday: 'short' });
             cell.appendChild(header);
 
-            // Date
             const dateNum = document.createElement('div');
             dateNum.className = `grid-cell-date ${isToday ? 'today-date' : ''}`;
             dateNum.textContent = currentDay.getDate();
             cell.appendChild(dateNum);
 
-            // Events
             const dayEvents = events.filter(e => {
                 const eventDate = new Date(e.startDate);
                 return eventDate.toDateString() === currentDay.toDateString();
@@ -1335,10 +1698,13 @@
                     dateStrDisplay = `<div class="text-xs opacity-70">${formatDateCustom(new Date(ev.startDate))}</div>`;
                 }
 
+                const sourceBadge = state.settings.showSourceBadge ? 
+                  `<span class="event-source-badge source-${ev.source}">${ev.source}</span>` : '';
+
                 evEl.innerHTML = `
                     <div class="event-time">${ev.isAllDay ? 'All Day' : timeStr}</div>
                     ${dateStrDisplay}
-                    <div class="event-title">${escapeHtml(ev.title)}</div>
+                    <div class="event-title">${escapeHtml(ev.title)}${sourceBadge}</div>
                 `;
                 cell.appendChild(evEl);
             });
@@ -1358,7 +1724,6 @@
         grid.className = 'calendar-grid month-view';
         grid.style.height = 'calc(100vh - 200px)';
 
-        // Day Names
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         dayNames.forEach(name => {
             const dayNameEl = document.createElement('div');
@@ -1367,7 +1732,6 @@
             grid.appendChild(dayNameEl);
         });
 
-        // Empty cells before first day
         const startDayOfWeek = firstDay.getDay();
         for (let i = 0; i < startDayOfWeek; i++) {
             const emptyCell = document.createElement('div');
@@ -1375,7 +1739,6 @@
             grid.appendChild(emptyCell);
         }
 
-        // Days
         for (let day = 1; day <= lastDay.getDate(); day++) {
             const currentDay = new Date(now.getFullYear(), now.getMonth(), day);
             const isToday = currentDay.toDateString() === today.toDateString();
@@ -1393,7 +1756,7 @@
                 return eventDate.toDateString() === currentDay.toDateString();
             });
 
-            dayEvents.forEach(ev => {
+            dayEvents.slice(0, 4).forEach(ev => {
                 const evEl = document.createElement('div');
                 evEl.className = 'grid-event';
                 evEl.style.borderLeftColor = `var(--${getEventStatus(ev)})`;
@@ -1404,6 +1767,13 @@
                 `;
                 cell.appendChild(evEl);
             });
+
+            if (dayEvents.length > 4) {
+              const moreEl = document.createElement('div');
+              moreEl.className = 'text-xs text-[var(--fg-muted)] text-center';
+              moreEl.textContent = `+${dayEvents.length - 4} more`;
+              cell.appendChild(moreEl);
+            }
 
             grid.appendChild(cell);
         }
@@ -1419,26 +1789,24 @@
       switch (state.settings.viewMode) {
         case 'week':
           startDate = new Date(today);
-          startDate.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
+          startDate.setDate(today.getDate() - today.getDay());
           endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
           break;
         case 'month':
           startDate = new Date(today.getFullYear(), today.getMonth(), 1);
           endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
           break;
-        default: // Day
+        default:
           startDate = today;
           endDate = new Date(today.getTime() + 24 * 60 * 60 * 1000);
       }
       
-      // Include manual entries
       const allEvents = [...state.events, ...state.manualEntries];
       
       return allEvents.filter(event => {
         const eventStart = new Date(event.startDate);
         const eventEnd = event.endDate ? new Date(event.endDate) : eventStart;
         
-        // Event starts within range or ends within range or spans the range
         return (eventStart >= startDate && eventStart < endDate) ||
                (eventEnd >= startDate && eventEnd < endDate) ||
                (eventStart <= startDate && eventEnd >= endDate);
@@ -1450,7 +1818,6 @@
         const dateA = new Date(a.startDate);
         const dateB = new Date(b.startDate);
         
-        // All-day events first
         if (a.isAllDay && !b.isAllDay) return -1;
         if (!a.isAllDay && b.isAllDay) return 1;
         
@@ -1479,12 +1846,14 @@
       return 'completed';
     }
 
-    function createEventRow(event, status, transitionClass, delay, showDate) {
+    function createEventRow(event, status, transitionClass, delay) {
       const tr = document.createElement('tr');
       tr.className = `calendar-row ${transitionClass}`;
       tr.style.animationDelay = `${delay}ms`;
       
-      // Time column
+      const sourceBadge = state.settings.showSourceBadge ? 
+        `<span class="event-source-badge source-${event.source}">${event.source}</span>` : '';
+      
       const timeCell = document.createElement('td');
       if (event.isAllDay) {
         timeCell.innerHTML = '<span class="text-[var(--fg-muted)]">All Day</span>';
@@ -1497,19 +1866,17 @@
         `;
       }
       
-      // Title column
       const titleCell = document.createElement('td');
       const titleClass = `text-${status}`;
       titleCell.innerHTML = `
         <div class="flex items-center gap-3">
           <span class="status-dot status-${status}"></span>
           <div class="marquee-container flex-1">
-            <span class="marquee-text font-medium ${titleClass}" data-title="${escapeHtml(event.title)}">${escapeHtml(event.title)}</span>
+            <span class="marquee-text font-medium ${titleClass}" data-title="${escapeHtml(event.title)}">${escapeHtml(event.title)}${sourceBadge}</span>
           </div>
         </div>
       `;
       
-      // Details column
       const detailsCell = document.createElement('td');
       const details = event.location || event.description || '—';
       detailsCell.innerHTML = `<span class="text-[var(--fg-muted)]">${escapeHtml(details)}</span>`;
@@ -1533,9 +1900,9 @@
         const opt = { year: 'numeric', month: 'short', day: 'numeric' };
         switch(state.settings.dateFormat) {
             case 'mmddyyyy':
-                return date.toLocaleDateString('en-US'); // Default US is MM/DD/YYYY
+                return date.toLocaleDateString('en-US');
             case 'ddmmyyyy':
-                return date.toLocaleDateString('en-GB'); // Default GB is DD/MM/YYYY
+                return date.toLocaleDateString('en-GB');
             default:
                 return date.toLocaleDateString('en-US', opt);
         }
@@ -1574,7 +1941,7 @@
       const container = document.getElementById('scrollContainer');
       container.classList.remove('auto-scroll');
       
-      if (!state.settings.movementEnabled || state.settings.viewMode !== 'day') return; // Only auto scroll for day view list
+      if (!state.settings.movementEnabled || state.settings.viewMode !== 'day') return;
       
       if (state.settings.transitionStyle === 'autoScroll' || state.settings.transitionStyle === 'gentleScroll') {
         const tbody = document.querySelector('#viewContainer tbody');
@@ -1605,10 +1972,9 @@
 
     function startClock() {
       setInterval(updateDateTime, 1000);
-      // Re-render events every minute to update statuses dynamically
       setInterval(() => {
         renderEvents(); 
-      }, 60000); // Every minute
+      }, 60000);
     }
 
     // ============================================
@@ -1684,6 +2050,64 @@
     // Settings Panel
     // ============================================
     
+    function loadFromStorage() {
+      try {
+        const settings = localStorage.getItem(STORAGE_KEYS.settings);
+        if (settings) {
+            const saved = JSON.parse(settings);
+            if(saved.colors) Object.assign(state.settings.colors, saved.colors);
+            delete saved.colors; 
+            Object.assign(state.settings, saved);
+        }
+
+        const manualEntries = localStorage.getItem(STORAGE_KEYS.manualEntries);
+        if (manualEntries) {
+          state.manualEntries = JSON.parse(manualEntries);
+        }
+
+        const icsCache = localStorage.getItem(STORAGE_KEYS.icsCache);
+        if (icsCache) {
+          const cached = JSON.parse(icsCache);
+          if (cached.events) {
+            state.events = mergeEvents(state.events, cached.events);
+          }
+        }
+
+        const csvCache = localStorage.getItem(STORAGE_KEYS.csvCache);
+        if (csvCache) {
+          const cached = JSON.parse(csvCache);
+          if (cached.events) {
+            state.events = mergeEvents(state.events, cached.events);
+          }
+        }
+
+        log('Settings loaded from storage', 'success');
+      } catch (e) {
+        log(`Error loading from storage: ${e.message}`, 'error');
+      }
+
+      updateSettingsUI();
+    }
+
+    function saveToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(state.settings));
+        localStorage.setItem(STORAGE_KEYS.manualEntries, JSON.stringify(state.manualEntries));
+        log('Settings saved to storage', 'success');
+      } catch (e) {
+        log(`Error saving to storage: ${e.message}`, 'error');
+      }
+    }
+
+    function applyColors() {
+        const root = document.documentElement;
+        root.style.setProperty('--upcoming', state.settings.colors.upcoming);
+        root.style.setProperty('--ongoing', state.settings.colors.ongoing);
+        root.style.setProperty('--completed', state.settings.colors.completed);
+        root.style.setProperty('--cancelled', state.settings.colors.cancelled);
+        root.style.setProperty('--dot-size', state.settings.dotSize + 'px');
+    }
+
     function updateSettingsUI() {
       document.getElementById('icsLink').value = state.settings.icsLink || '';
       document.getElementById('csvUrl').value = state.settings.csvUrl || '';
@@ -1693,28 +2117,23 @@
       document.getElementById('refreshInterval').value = state.settings.refreshInterval === 'custom' ? 'custom' : state.settings.refreshInterval;
       document.getElementById('pinSetting').value = state.settings.pin || '';
       
-      // New UI Elements
       document.getElementById('dateFormat').value = state.settings.dateFormat;
       document.getElementById('dotSizeSetting').value = state.settings.dotSize;
       document.getElementById('showDateWeek').checked = state.settings.showDateWeek;
+      document.getElementById('showSourceBadge').checked = state.settings.showSourceBadge;
       
       document.getElementById('colorUpcoming').value = state.settings.colors.upcoming;
       document.getElementById('colorOngoing').value = state.settings.colors.ongoing;
       document.getElementById('colorCompleted').value = state.settings.colors.completed;
       document.getElementById('colorCancelled').value = state.settings.colors.cancelled;
       
-      // Update view tabs in main display
       document.querySelectorAll('[data-view]').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.view === state.settings.viewMode);
       });
       
-      // Update movement buttons
       updateMovementButtons();
-      
-      // Render manual entries
       renderManualEntries();
       
-      // Show/hide custom inputs
       if (state.settings.refreshInterval === 'custom') {
         document.getElementById('customRefresh').classList.remove('hidden');
         document.getElementById('customRefresh').value = state.settings.customRefresh;
@@ -1724,6 +2143,8 @@
         document.getElementById('customSpeed').classList.remove('hidden');
         document.getElementById('customSpeed').value = state.settings.customSpeed;
       }
+
+      updateEventStats();
     }
 
     function updateMovementButtons() {
@@ -1770,20 +2191,11 @@
       `).join('');
     }
 
-    function formatDate(date) {
-      return date.toLocaleDateString('en-US', { 
-        weekday: 'short', 
-        month: 'short', 
-        day: 'numeric' 
-      });
-    }
-
     // ============================================
     // Event Listeners
     // ============================================
     
     function setupEventListeners() {
-      // Gear button - open settings
       document.getElementById('gearBtn').addEventListener('click', () => {
         if (state.settings.pin) {
           document.getElementById('pinModal').classList.add('open');
@@ -1793,23 +2205,19 @@
         }
       });
 
-      // PIN Modal
       document.getElementById('pinCancel').addEventListener('click', closePinModal);
       document.getElementById('pinSubmit').addEventListener('click', verifyPin);
       document.getElementById('pinInput').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') verifyPin();
       });
 
-      // Settings panel
       document.getElementById('closeSettings').addEventListener('click', closeSettings);
       document.getElementById('settingsOverlay').addEventListener('click', closeSettings);
 
-      // Tab switching
       document.querySelectorAll('[data-tab]').forEach(btn => {
         btn.addEventListener('click', () => switchTab(btn.dataset.tab));
       });
 
-      // View mode switching
       document.querySelectorAll('[data-view]').forEach(btn => {
         btn.addEventListener('click', () => {
           state.settings.viewMode = btn.dataset.view;
@@ -1818,7 +2226,6 @@
         });
       });
 
-      // Movement toggle
       document.getElementById('movementOn').addEventListener('click', () => {
         state.settings.movementEnabled = true;
         updateMovementButtons();
@@ -1829,7 +2236,6 @@
         updateMovementButtons();
       });
 
-      // Refresh interval
       document.getElementById('refreshInterval').addEventListener('change', (e) => {
         const customInput = document.getElementById('customRefresh');
         if (e.target.value === 'custom') {
@@ -1839,7 +2245,6 @@
         }
       });
 
-      // Transition speed
       document.getElementById('transitionSpeed').addEventListener('change', (e) => {
         const customInput = document.getElementById('customSpeed');
         if (e.target.value === 'custom') {
@@ -1849,21 +2254,31 @@
         }
       });
 
-      // Refresh data button
-      document.getElementById('refreshData').addEventListener('click', () => {
-        fetchAllData();
-      });
-
-      // Add entry button
+      document.getElementById('refreshData').addEventListener('click', fetchAllData);
+      document.getElementById('testIcsBtn').addEventListener('click', testICSLink);
       document.getElementById('addEntry').addEventListener('click', addManualEntry);
-
-      // CSV file upload
       document.getElementById('csvFile').addEventListener('change', handleCSVUpload);
-
-      // Save settings
       document.getElementById('saveSettings').addEventListener('click', saveSettings);
 
-      // Online/offline detection
+      // Debug tab buttons
+      document.getElementById('clearDebugLog').addEventListener('click', () => {
+        state.debugLog = [];
+        updateDebugUI();
+        log('Debug log cleared', 'info');
+      });
+
+      document.getElementById('clearAllCache').addEventListener('click', () => {
+        localStorage.removeItem(STORAGE_KEYS.icsCache);
+        localStorage.removeItem(STORAGE_KEYS.csvCache);
+        state.events = [];
+        log('All cache cleared', 'warning');
+        renderEvents();
+        updateEventStats();
+        alert('Cache cleared. Click "Refresh Data Now" to reload events.');
+      });
+
+      document.getElementById('exportDebugInfo').addEventListener('click', exportDebugInfo);
+
       window.addEventListener('online', () => {
         state.isOnline = true;
         fetchAllData();
@@ -1874,7 +2289,6 @@
         updateStatusBar();
       });
 
-      // Keyboard navigation
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
           if (document.getElementById('settingsPanel').classList.contains('open')) {
@@ -1884,6 +2298,40 @@
           }
         }
       });
+    }
+
+    function exportDebugInfo() {
+      const debugInfo = {
+        timestamp: new Date().toISOString(),
+        settings: {
+          ...state.settings,
+          icsLink: state.settings.icsLink ? `${state.settings.icsLink.substring(0, 30)}...` : '',
+          csvUrl: state.settings.csvUrl ? `${state.settings.csvUrl.substring(0, 30)}...` : '',
+          pin: state.settings.pin ? '****' : ''
+        },
+        eventCounts: {
+          total: state.events.length + state.manualEntries.length,
+          ics: state.events.filter(e => e.source === 'ics').length,
+          csv: state.events.filter(e => e.source === 'csv').length,
+          manual: state.manualEntries.length
+        },
+        debugLog: state.debugLog.slice(0, 20),
+        sampleEvents: [...state.events, ...state.manualEntries].slice(0, 10).map(e => ({
+          title: e.title,
+          startDate: e.startDate,
+          source: e.source,
+          isAllDay: e.isAllDay
+        }))
+      };
+
+      const blob = new Blob([JSON.stringify(debugInfo, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `calendar-debug-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      log('Debug info exported', 'success');
     }
 
     function openSettings() {
@@ -1969,8 +2417,9 @@
       saveToStorage();
       renderManualEntries();
       renderEvents();
+      updateEventStats();
+      log(`Added manual entry: "${title}"`, 'success');
       
-      // Clear form
       document.getElementById('entryTitle').value = '';
       document.getElementById('entryDate').value = '';
       document.getElementById('entryStartTime').value = '';
@@ -1980,30 +2429,35 @@
     }
 
     window.removeEntry = function(index) {
+      const entry = state.manualEntries[index];
       state.manualEntries.splice(index, 1);
       saveToStorage();
       renderManualEntries();
       renderEvents();
+      updateEventStats();
+      log(`Removed manual entry: "${entry.title}"`, 'info');
     };
 
     function handleCSVUpload(e) {
       const file = e.target.files[0];
       if (!file) return;
       
+      log(`Processing uploaded CSV: ${file.name}`, 'info');
+      
       const reader = new FileReader();
       reader.onload = (event) => {
         const content = event.target.result;
         const events = parseCSV(content);
         
-        // Cache the events
         localStorage.setItem(STORAGE_KEYS.csvCache, JSON.stringify({
           events: events,
           timestamp: new Date().toISOString()
         }));
         
-        // Merge with existing events
         state.events = mergeEvents(state.events.filter(e => e.source !== 'csv'), events);
         renderEvents();
+        updateEventStats();
+        log(`CSV upload complete: ${events.length} events`, 'success');
       };
       reader.readAsText(file);
     }
@@ -2017,10 +2471,10 @@
       state.settings.refreshInterval = document.getElementById('refreshInterval').value;
       state.settings.pin = document.getElementById('pinSetting').value.trim();
       
-      // Save new settings
       state.settings.dateFormat = document.getElementById('dateFormat').value;
       state.settings.dotSize = parseInt(document.getElementById('dotSizeSetting').value) || 10;
       state.settings.showDateWeek = document.getElementById('showDateWeek').checked;
+      state.settings.showSourceBadge = document.getElementById('showSourceBadge').checked;
       
       state.settings.colors.upcoming = document.getElementById('colorUpcoming').value;
       state.settings.colors.ongoing = document.getElementById('colorOngoing').value;
@@ -2036,18 +2490,36 @@
       }
       
       saveToStorage();
-      applyColors(); // Apply new colors immediately
-      startAutoRefresh(); fetchAllData(); closeSettings();
+      applyColors();
+      startAutoRefresh(); 
+      fetchAllData(); 
+      closeSettings();
       
-      // Apply view mode to main display
       document.querySelectorAll('[data-view]').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.view === state.settings.viewMode);
       });
     }
 
     // ============================================
-    // Initialize the application
+    // Initialization
     // ============================================
+    
+    function init() {
+      loadFromStorage();
+      applyColors();
+      renderEvents();
+      updateDateTime();
+      startClock();
+      setupEventListeners();
+      startAutoRefresh();
+      setupCursorHiding();
+      
+      log('PCIEERD Calendar System initialized', 'success');
+      
+      if (state.settings.icsLink || state.settings.csvUrl) {
+        fetchAllData();
+      }
+    }
     
     document.addEventListener('DOMContentLoaded', init);
   </script>
