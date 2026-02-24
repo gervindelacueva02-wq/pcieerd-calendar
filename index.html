@@ -40,7 +40,7 @@
       font-family: 'DM Sans', sans-serif;
       background: var(--bg);
       color: var(--fg);
-      overflow: hidden;
+      overflow: hidden; /* lock page, panels will animate internally */
       height: 100%;
       width: 100%;
     }
@@ -136,16 +136,10 @@
     .animate-slide-up { animation: slideUp 0.5s ease-out forwards; }
     .animate-slide-left { animation: slideLeft 0.5s ease-out forwards; }
 
-    /* Scroll container */
+    /* Scroll container - locked to viewport; panels handle overflow via transform animations */
     .scroll-container {
-      overflow-y: auto;
-      overflow-x: hidden;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-    }
-
-    .scroll-container::-webkit-scrollbar {
-      display: none;
+      overflow: hidden;
+      height: calc(100vh - 110px); /* header + status bar buffer */
     }
 
     @keyframes gentleScroll {
@@ -157,9 +151,33 @@
       animation: gentleScroll var(--scroll-duration, 60s) linear infinite;
     }
 
+    /* CSS-driven slide-up loop for overflowing panels */
+    .auto-slide {
+      --slide-distance: 0px;
+      --slide-duration: 30s;
+      animation-name: slideUpLoop;
+      animation-duration: var(--slide-duration);
+      animation-timing-function: linear;
+      animation-iteration-count: infinite;
+      animation-play-state: running;
+      will-change: transform;
+    }
+
+    .auto-slide:hover {
+      animation-play-state: paused;
+    }
+
+    @keyframes slideUpLoop {
+      0% { transform: translateY(0); }
+      85% { transform: translateY(var(--slide-distance)); }
+      100% { transform: translateY(var(--slide-distance)); }
+    }
+
     @media (prefers-reduced-motion: reduce) {
-      .auto-scroll {
-        animation: none;
+      .auto-scroll,
+      .auto-slide {
+        animation: none !important;
+        transform: none !important;
       }
     }
 
@@ -178,6 +196,23 @@
     }
 
     .settings-panel.open {
+      right: 0;
+    }
+
+    .entries-panel {
+      position: fixed;
+      top: 0;
+      right: -480px;
+      width: 480px;
+      height: 100%;
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border);
+      z-index: 101;
+      transition: right 0.3s ease;
+      overflow-y: auto;
+    }
+
+    .entries-panel.open {
       right: 0;
     }
 
@@ -258,25 +293,23 @@
 
     /* Gear button */
     .gear-btn {
-      position: fixed;
-      top: 1rem;
-      right: 1rem;
       width: 48px;
       height: 48px;
       border-radius: 12px;
       background: var(--bg-card);
-      border: 1px solid var(--border);
+      border: 2px solid var(--accent);
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 50;
-      opacity: 0.3;
-      transition: opacity 0.3s, background 0.2s;
+      cursor: pointer;
+      opacity: 0.8;
+      transition: opacity 0.3s, background 0.2s, border-color 0.2s;
     }
 
     .gear-btn:hover {
       opacity: 1;
       background: var(--bg-secondary);
+      border-color: var(--accent);
     }
 
     /* Table styles */
@@ -369,6 +402,197 @@
     .today-date { color: var(--accent); }
 
     /* View tabs */
+    /* Split Screen Layout (Today/Tomorrow) */
+    .split-screen {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      height: 100%;
+    }
+
+    /* Quad grid: top row events (today/tomorrow), bottom row columns (today/tomorrow) */
+    .quad-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1px 1fr;
+      gap: 1rem;
+      height: 100%;
+      width: 100%;
+    }
+
+    /* Ensure view container and quad grid fill scroll area */
+    #viewContainer { height: 100%; }
+
+    .quad-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: visible; /* prevent internal scrollbars */
+    }
+
+    /* Ensure panels can shrink/grow properly inside the grid */
+    .quad-grid > .quad-panel { min-height: 0; }
+    .quad-panel .split-panel-events { flex: 1 1 auto; overflow: visible; min-height: 0; }
+    .quad-panel .column-section { display: grid; grid-auto-rows: min-content; }
+    /* Make column sections and boxes independently scrollable to avoid moving whole layout */
+    .quad-panel > .column-section { flex: 1 1 auto; overflow: visible; min-height: 0; }
+    .column-box { display: flex; flex-direction: column; min-height: 0; }
+    .column-items { overflow: visible; flex: 1 1 auto; min-height: 0; }
+
+    /* Bottom quad panels (columns) get a straight dividing line under them */
+    .quad-divider {
+      grid-column: 1 / -1;
+      width: 100%;
+      height: 1px;
+      background: var(--border);
+      justify-self: stretch;
+      align-self: center;
+    }
+
+    /* Responsive: stack panels on narrow screens */
+    @media (max-width: 900px) {
+      .quad-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto 1px auto auto;
+        gap: 0.5rem;
+      }
+      .quad-divider { display: none; }
+      .quad-panel { padding: 0.5rem; }
+      #calendarContainer { padding-left: 0.5rem; padding-right: 0.5rem; }
+    }
+
+    @media (min-width: 901px) {
+      #calendarContainer { padding-left: 2rem; padding-right: 2rem; }
+    }
+    .split-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .split-panel-header {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--accent);
+      border-bottom: 2px solid var(--accent);
+      padding-bottom: 0.5rem;
+    }
+
+    .split-panel-events {
+      flex: 1;
+      overflow: visible; /* let page handle overflow */
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .event-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      border-left: 4px solid var(--accent);
+    }
+
+    .event-card-content {
+      font-size: 0.875rem;
+      color: var(--fg-text);
+      line-height: 1.4;
+      word-break: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .event-card-time {
+      font-size: 0.875rem;
+      color: var(--fg-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .event-card-title {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .event-card-details {
+      font-size: 0.875rem;
+      color: var(--fg-muted);
+    }
+
+    /* Three Column Bottom Section */
+    .column-section {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-top: 0.5rem;
+      padding-top: 0;
+      border-top: none;
+    }
+
+    /* When used inside the quad-panel (bottom row), remove extra top spacing */
+    .quad-panel > .column-section {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: none;
+    }
+
+    .column-box {
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      padding: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .column-header {
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+
+    .column-items {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    /* Make column items visually match event cards */
+    .column-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-size: 0.9rem;
+      color: var(--fg);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .column-item .col-title {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-right: 0.5rem;
+    }
+
+    .column-item .col-time {
+      color: var(--fg-muted);
+      font-size: 0.85rem;
+      margin-left: 0.5rem;
+      white-space: nowrap;
+    }
+
     .view-tab {
       padding: 0.5rem 1.25rem;
       border-radius: 6px;
@@ -390,17 +614,28 @@
       color: var(--fg);
     }
 
+    /* View mode dropdown menu for compact control */
+    .view-mode-container { position: relative; }
+    .view-mode-btn { appearance: none; border: none; background: transparent; padding: 0.5rem 0.75rem; border-radius:6px; cursor: pointer; display:flex; align-items:center; gap:0.5rem; }
+    .view-mode-btn:hover { background: var(--bg-card); }
+    .view-mode-menu { position: absolute; right: 0; top: 110%; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem; box-shadow: 0 6px 18px rgba(0,0,0,0.25); display: none; min-width: 160px; z-index:60; }
+    .view-mode-menu.open { display: block; }
+    .view-mode-menu button { width: 100%; text-align: left; padding: 0.5rem 0.75rem; border-radius:6px; background: transparent; border: none; color: var(--fg); }
+    .view-mode-menu button:hover { background: var(--bg); color: var(--fg); }
+
     /* Header date display */
     .date-header {
-      font-size: clamp(2rem, 5vw, 4rem);
+      font-size: clamp(1.25rem, 3vw, 2rem);
       font-weight: 700;
       letter-spacing: -0.02em;
+      margin: 0;
     }
 
     .time-header {
-      font-size: clamp(1.5rem, 3vw, 2.5rem);
+      font-size: clamp(0.875rem, 1.5vw, 1.1rem);
       font-weight: 500;
       color: var(--fg-muted);
+      margin-left: 0.5rem;
     }
 
     /* Manual entry card */
@@ -469,13 +704,34 @@
   <div class="bg-pattern"></div>
   <div class="bg-grid"></div>
 
-  <!-- Gear Button -->
-  <button class="gear-btn" id="gearBtn" aria-label="Open Settings">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="3"></circle>
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-    </svg>
-  </button>
+  <!-- Control Buttons -->
+  <div style="position: fixed; top: 1rem; right: 1rem; display: flex; gap: 0.5rem; align-items: center; z-index: 50;">
+    <!-- View Mode Dropdown (compact) -->
+    <div class="view-mode-container" id="viewModeContainer">
+      <button class="view-mode-btn" id="viewModeBtn" aria-haspopup="true" aria-expanded="false">Day ▾</button>
+      <div class="view-mode-menu" id="viewModeMenu" role="menu" aria-hidden="true">
+        <button type="button" data-view="day">Day</button>
+        <button type="button" data-view="week">Week</button>
+        <button type="button" data-view="month">Month</button>
+      </div>
+    </div>
+
+    <!-- Add Entry Button (Plus) -->
+    <button class="gear-btn" id="addEntryBtn" aria-label="Add Entry" title="Add Entry">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+    </button>
+
+    <!-- Settings Button -->
+    <button class="gear-btn" id="gearBtn" aria-label="Open Settings">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </svg>
+    </button>
+  </div>
 
   <!-- PIN Modal -->
   <div class="pin-modal" id="pinModal">
@@ -493,6 +749,143 @@
   <!-- Settings Overlay -->
   <div class="settings-overlay" id="settingsOverlay"></div>
 
+  <!-- Entries Category Selector Modal -->
+  <div class="pin-modal" id="categoryModal">
+    <div class="bg-[var(--bg-card)] p-8 rounded-2xl border border-[var(--border)] w-96">
+      <h3 class="font-display text-xl font-semibold mb-6 text-center">Add Entry</h3>
+      <div class="space-y-3">
+        <button class="w-full py-3 rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-700 text-white font-medium hover:opacity-90 transition" onclick="selectCategory('Event')">
+          + Event
+        </button>
+        <button class="w-full py-3 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium hover:opacity-90 transition" onclick="selectCategory('CTO')">
+          + CTO
+        </button>
+        <button class="w-full py-3 rounded-lg bg-gradient-to-r from-green-600 to-green-700 text-white font-medium hover:opacity-90 transition" onclick="selectCategory('WFH')">
+          + WFH
+        </button>
+        <button class="w-full py-3 rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 text-white font-medium hover:opacity-90 transition" onclick="selectCategory('Travel')">
+          + Travel
+        </button>
+      </div>
+      <button class="w-full mt-4 py-2 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border)] text-[var(--fg-muted)] hover:text-[var(--fg)] transition" onclick="closeCategoryModal()">
+        Cancel
+      </button>
+    </div>
+  </div>
+
+  <!-- Entries Panel Overlay -->
+  <div class="settings-overlay" id="entriesOverlay"></div>
+
+  <!-- Unified Entries Panel -->
+  <div class="entries-panel" id="entriesPanel">
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-8">
+        <h2 class="font-display text-xl font-semibold" id="entriesPanelTitle">Add Entry</h2>
+        <button class="w-10 h-10 rounded-lg bg-[var(--bg-card)] flex items-center justify-center hover:bg-[var(--border)]" onclick="closeEntries()" aria-label="Close Entries">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <div class="space-y-6">
+        <!-- EVENT SECTION -->
+        <div id="eventSection" class="hidden p-4 bg-[var(--bg-card)] rounded-xl border border-[var(--border)]">
+          <h4 class="font-medium mb-4 text-cyan-400">Event</h4>
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs text-[var(--fg-muted)] block mb-1">Event Title</label>
+              <input type="text" id="eventTitle" placeholder="e.g., Team Meeting, Deadline">
+            </div>
+            <div>
+              <label class="text-xs text-[var(--fg-muted)] block mb-1">Event Date</label>
+              <input type="date" id="eventDate">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs text-[var(--fg-muted)] block mb-1">Start Time</label>
+                <input type="time" id="eventStartTime">
+              </div>
+              <div>
+                <label class="text-xs text-[var(--fg-muted)] block mb-1">End Time</label>
+                <input type="time" id="eventEndTime">
+              </div>
+            </div>
+            <div>
+              <label class="text-xs text-[var(--fg-muted)] block mb-1">Event Details</label>
+              <textarea id="eventDetails" rows="2" placeholder="Location, description..."></textarea>
+            </div>
+            <button class="w-full py-3 rounded-lg bg-cyan-600 text-white font-medium hover:opacity-90" onclick="addCategoryEntry('Event')">
+              Add Event
+            </button>
+          </div>
+        </div>
+
+        <!-- CTO SECTION -->
+        <div id="ctoSection" class="hidden p-4 bg-[var(--bg-card)] rounded-xl border border-[var(--border)]">
+          <h4 class="font-medium mb-4 text-blue-400">CTO</h4>
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs text-[var(--fg-muted)] block mb-1">Person Name</label>
+              <input type="text" id="ctoPersonName" placeholder="e.g., John Smith">
+            </div>
+            <div>
+              <label class="text-xs text-[var(--fg-muted)] block mb-1">CTO Date</label>
+              <input type="date" id="ctoCtoDate">
+            </div>
+            <button class="w-full py-3 rounded-lg bg-blue-600 text-white font-medium hover:opacity-90" onclick="addCategoryEntry('CTO')">
+              Add CTO
+            </button>
+          </div>
+        </div>
+
+        <!-- WFH SECTION -->
+        <div id="wfhSection" class="hidden p-4 bg-[var(--bg-card)] rounded-xl border border-[var(--border)]">
+          <h4 class="font-medium mb-4 text-green-400">WFH</h4>
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs text-[var(--fg-muted)] block mb-1">Person Name</label>
+              <input type="text" id="wfhPersonName" placeholder="e.g., Jane Doe">
+            </div>
+            <div>
+              <label class="text-xs text-[var(--fg-muted)] block mb-1">WFH Date</label>
+              <input type="date" id="wfhWfhDate">
+            </div>
+            <button class="w-full py-3 rounded-lg bg-green-600 text-white font-medium hover:opacity-90" onclick="addCategoryEntry('WFH')">
+              Add WFH
+            </button>
+          </div>
+        </div>
+
+        <!-- TRAVEL SECTION -->
+        <div id="travelSection" class="hidden p-4 bg-[var(--bg-card)] rounded-xl border border-[var(--border)]">
+          <h4 class="font-medium mb-4 text-purple-400">Travel</h4>
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs text-[var(--fg-muted)] block mb-1">Person Name</label>
+              <input type="text" id="travelPersonName" placeholder="e.g., Mike Johnson">
+            </div>
+            <div>
+              <label class="text-xs text-[var(--fg-muted)] block mb-1">Travel Date</label>
+              <input type="date" id="travelTravelDate">
+            </div>
+            <button class="w-full py-3 rounded-lg bg-purple-600 text-white font-medium hover:opacity-90" onclick="addCategoryEntry('Travel')">
+              Add Travel
+            </button>
+          </div>
+        </div>
+
+        <!-- ENTRIES LIST -->
+        <div>
+          <h4 class="font-medium mb-4">All Entries</h4>
+          <div id="entriesList" class="space-y-3">
+            <p class="text-[var(--fg-muted)] text-sm">No entries yet</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Settings Panel -->
   <div class="settings-panel" id="settingsPanel">
     <div class="p-6">
@@ -509,7 +902,6 @@
       <div class="flex gap-2 mb-6 p-1 bg-[var(--bg-card)] rounded-lg">
         <button class="view-tab active flex-1" data-tab="sources">Data Sources</button>
         <button class="view-tab flex-1" data-tab="display">Display</button>
-        <button class="view-tab flex-1" data-tab="entries">Entries</button>
       </div>
 
       <!-- Data Sources Tab -->
@@ -651,34 +1043,7 @@
         </div>
       </div>
 
-      <!-- Entries Tab -->
-      <div class="tab-content hidden" id="tab-entries">
-        <div class="space-y-6">
-          <div class="p-4 bg-[var(--bg-card)] rounded-xl border border-[var(--border)]">
-            <h4 class="font-medium mb-4">Add Manual Entry</h4>
-            <div class="space-y-3">
-              <input type="text" id="entryTitle" placeholder="Event Title *">
-              <input type="date" id="entryDate">
-              <div class="grid grid-cols-2 gap-3">
-                <input type="time" id="entryStartTime" placeholder="Start Time">
-                <input type="time" id="entryEndTime" placeholder="End Time">
-              </div>
-              <input type="text" id="entryLocation" placeholder="Location (optional)">
-              <textarea id="entryDescription" rows="2" placeholder="Description (optional)"></textarea>
-              <button class="w-full py-3 rounded-lg bg-[var(--accent)] text-[var(--bg)] font-medium hover:opacity-90" id="addEntry">
-                Add Entry
-              </button>
-            </div>
-          </div>
 
-          <div>
-            <h4 class="font-medium mb-4">Manual Entries</h4>
-            <div id="entriesList" class="space-y-3">
-              <p class="text-[var(--fg-muted)] text-sm">No manual entries</p>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <!-- Save Button -->
       <div class="mt-8 pt-6 border-t border-[var(--border)]">
@@ -692,25 +1057,21 @@
   <!-- Main Display -->
   <main class="h-full flex flex-col" id="mainDisplay">
     <!-- Header -->
-    <header class="px-8 pt-8 pb-6">
+    <header class="px-6 pt-4 pb-3">
       <div class="flex items-end justify-between">
         <div>
           <p class="text-[var(--accent)] text-sm font-medium tracking-widest uppercase mb-2">PCIEERD Calendar Information System</p>
-          <div class="flex items-baseline gap-6">
+          <div class="flex items-baseline gap-3">
             <h1 class="date-header font-display" id="dateDisplay">Monday, January 15</h1>
             <span class="time-header" id="timeDisplay">10:30 AM</span>
           </div>
         </div>
-        <div class="flex gap-2 bg-[var(--bg-card)] rounded-lg p-1">
-          <button class="view-tab active" data-view="day">Day</button>
-          <button class="view-tab" data-view="week">Week</button>
-          <button class="view-tab" data-view="month">Month</button>
-        </div>
+        <!-- header view tabs removed (compact view dropdown is available in top-right controls) -->
       </div>
     </header>
 
     <!-- Calendar Content -->
-    <div class="flex-1 px-8 pb-12 overflow-hidden" id="calendarContainer">
+    <div class="flex-1 px-4 md:px-8 pb-6 md:pb-12 overflow-hidden" id="calendarContainer">
       <div class="scroll-container h-full" id="scrollContainer">
          <!-- Dynamic View Container -->
          <div id="viewContainer"></div>
@@ -1420,29 +1781,292 @@
       }
       
       document.getElementById('eventCount').textContent = `${sortedEvents.length} events`;
+
+      // After rendering, evaluate per-panel slide needs (allow layout to settle)
+      requestAnimationFrame(() => setTimeout(() => {
+        document.querySelectorAll('.quad-panel').forEach(panel => {
+          // events panels
+          const eventsInner = panel.querySelector('.split-panel-events .slide-inner');
+          const eventsContainer = panel.querySelector('.split-panel-events');
+          if (eventsContainer && eventsInner) enableSlideIfNeeded(eventsContainer, eventsInner, { speed: 30 });
+
+          // column items
+          panel.querySelectorAll('.column-items').forEach(itemsContainer => {
+            const inner = itemsContainer.querySelector('.slide-inner');
+            if (inner) enableSlideIfNeeded(itemsContainer, inner, { speed: 30 });
+          });
+        });
+      }, 60));
     }
 
     function renderDayView(container, events) {
-        const table = document.createElement('table');
-        table.className = 'calendar-table';
-        table.innerHTML = `<thead><tr><th style="width: 20%;">Time</th><th style="width: 50%;">Title</th><th style="width: 30%;">Details</th></tr></thead>`;
-        const tbody = document.createElement('tbody');
-        
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const tomorrow = new Date(today);
+      tomorrow.setDate(today.getDate() + 1);
+
+      // Split events by date
+      const todayEvents = events.filter(e => {
+        const eventDate = new Date(e.startDate);
+        return eventDate.toDateString() === today.toDateString();
+      }).sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+
+      const tomorrowEvents = events.filter(e => {
+        const eventDate = new Date(e.startDate);
+        return eventDate.toDateString() === tomorrow.toDateString();
+      }).sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+
+      // Create 2x2 quad grid: top row = events (today/tomorrow), bottom row = columns (today/tomorrow)
+      const quadGrid = document.createElement('div');
+      quadGrid.className = 'quad-grid';
+
+      const todayEventsPanel = createEventsPanel('Today Events', today, todayEvents);
+      const tomorrowEventsPanel = createEventsPanel('Tomorrow Events', tomorrow, tomorrowEvents);
+
+      const todayColumnsPanel = createColumnsPanel('Today', today);
+      const tomorrowColumnsPanel = createColumnsPanel('Tomorrow', tomorrow);
+
+      quadGrid.appendChild(todayEventsPanel);
+      quadGrid.appendChild(tomorrowEventsPanel);
+
+      // Divider spanning both columns
+      const divider = document.createElement('div');
+      divider.className = 'quad-divider';
+      quadGrid.appendChild(divider);
+
+      quadGrid.appendChild(todayColumnsPanel);
+      quadGrid.appendChild(tomorrowColumnsPanel);
+
+      container.appendChild(quadGrid);
+    }
+
+    // Helper: events-only panel (top-left / top-right)
+    function createEventsPanel(label, date, events) {
+      const panel = document.createElement('div');
+      panel.className = 'quad-panel';
+
+      const header = document.createElement('div');
+      header.className = 'split-panel-header';
+      header.textContent = `${label} - ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
+      panel.appendChild(header);
+
+      const eventsContainer = document.createElement('div');
+      eventsContainer.className = 'split-panel-events';
+
+      // Inner wrapper that will be translated when content overflows
+      const slideInner = document.createElement('div');
+      slideInner.className = 'slide-inner';
+
+      if (events.length === 0) {
+        const emptyMsg = document.createElement('div');
+        emptyMsg.style.color = 'var(--fg-muted)';
+        emptyMsg.textContent = 'No events scheduled';
+        slideInner.appendChild(emptyMsg);
+      } else {
+        events.forEach(event => {
+          const eventCard = document.createElement('div');
+          eventCard.className = 'event-card';
+          const status = getEventStatus(event);
+          eventCard.style.borderLeftColor = `var(--${status})`;
+
+          let timeText = '';
+          if (event.isAllDay) {
+            timeText = 'All Day';
+          } else {
+            const start = formatTime(new Date(event.startDate));
+            const end = event.endDate ? formatTime(new Date(event.endDate)) : '';
+            timeText = end ? `${start} - ${end}` : start;
+          }
+
+          const detailsText = event.location || event.description || '';
+          const contentText = `${timeText} | ${event.title}${detailsText ? ' | ' + detailsText : ''}`;
+
+          const content = document.createElement('div');
+          content.className = 'event-card-content';
+          content.textContent = contentText;
+          eventCard.appendChild(content);
+
+          slideInner.appendChild(eventCard);
+        });
+      }
+
+      eventsContainer.appendChild(slideInner);
+      panel.appendChild(eventsContainer);
+
+      // Evaluate slide for overflow and enable animation if needed
+      setTimeout(() => {
+        enableSlideIfNeeded(eventsContainer, slideInner, { speed: 30 });
+      }, 60);
+
+      return panel;
+    }
+
+    // Helper: columns-only panel (bottom-left / bottom-right)
+    function createColumnsPanel(label, date) {
+      const panel = document.createElement('div');
+      panel.className = 'quad-panel';
+      // Bottom panels omit the date header to keep columns compact
+
+      const columnSection = document.createElement('div');
+      columnSection.className = 'column-section';
+
+      const dateStr = date.toDateString();
+      const manualEntriesForDate = state.manualEntries.filter(e => {
+        const entryDate = new Date(e.startDate);
+        return entryDate.toDateString() === dateStr;
+      });
+
+      const ctoBox = createColumnBox('Compensatory Time-Off', manualEntriesForDate.filter(e => e.title.includes('[CTO]')));
+      const wfhBox = createColumnBox('Work From Home', manualEntriesForDate.filter(e => e.title.includes('[WFH]')));
+      const travelBox = createColumnBox('Travel', manualEntriesForDate.filter(e => e.title.includes('[Travel]')));
+
+      columnSection.appendChild(ctoBox);
+      columnSection.appendChild(wfhBox);
+      columnSection.appendChild(travelBox);
+
+      panel.appendChild(columnSection);
+      return panel;
+    }
+
+    function createSplitPanel(label, date, events) {
+        const panel = document.createElement('div');
+        panel.className = 'split-panel';
+
+        const header = document.createElement('div');
+        header.className = 'split-panel-header';
+        header.textContent = `${label} - ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
+        panel.appendChild(header);
+
+        const eventsContainer = document.createElement('div');
+        eventsContainer.className = 'split-panel-events';
+
         if (events.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="3" class="text-center py-16"><div class="empty-state"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mb-4 opacity-50"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg><p class="text-xl font-medium mb-2">No Events Scheduled</p><p class="text-sm opacity-70">No events for the selected period</p></div></td></tr>`;
+            const emptyMsg = document.createElement('div');
+            emptyMsg.style.color = 'var(--fg-muted)';
+            emptyMsg.textContent = 'No events scheduled';
+            eventsContainer.appendChild(emptyMsg);
         } else {
-            const transitionClass = getTransitionClass();
-            const speedDelay = getSpeedDelay();
-            events.forEach((event, index) => {
-              const status = getEventStatus(event);
-              const row = createEventRow(event, status, transitionClass, index * speedDelay, false);
-              tbody.appendChild(row);
+          events.forEach(event => {
+                const eventCard = document.createElement('div');
+                eventCard.className = 'event-card';
+                const status = getEventStatus(event);
+                eventCard.style.borderLeftColor = `var(--${status})`;
+
+                let timeText = '';
+                if (event.isAllDay) {
+                    timeText = 'All Day';
+                } else {
+                    const start = formatTime(new Date(event.startDate));
+                    const end = event.endDate ? formatTime(new Date(event.endDate)) : '';
+                    timeText = end ? `${start} - ${end}` : start;
+                }
+
+                const detailsText = event.location || event.description || '';
+                const contentText = `${timeText} | ${event.title}${detailsText ? ' | ' + detailsText : ''}`;
+
+                const content = document.createElement('div');
+                content.className = 'event-card-content';
+                content.textContent = contentText;
+                eventCard.appendChild(content);
+
+                eventsContainer.appendChild(eventCard);
             });
         }
-        table.appendChild(tbody);
-        container.appendChild(table);
-        
-        applyScrollAnimation();
+            panel.appendChild(eventsContainer);
+
+            // Auto-scroll whenever the content exceeds the container height
+            setTimeout(() => {
+              const shouldScroll = eventsContainer.scrollHeight > eventsContainer.clientHeight;
+              if (shouldScroll) {
+                eventsContainer.style.overflow = 'hidden';
+                startAutoScroll(eventsContainer);
+              } else {
+                eventsContainer.style.overflow = 'auto';
+                stopAutoScroll(eventsContainer);
+              }
+              // Pause auto-scroll on hover and resume on leave for accessibility
+              eventsContainer.addEventListener('mouseenter', () => stopAutoScroll(eventsContainer));
+              eventsContainer.addEventListener('mouseleave', () => { if (eventsContainer.scrollHeight > eventsContainer.clientHeight) startAutoScroll(eventsContainer); });
+            }, 50);
+
+            // Add 3-column section at bottom
+        const columnSection = document.createElement('div');
+        columnSection.className = 'column-section';
+
+        // Get manual entries (CTO/WFH/Travel) for this date
+        const dateStr = date.toDateString();
+        const manualEntriesForDate = state.manualEntries.filter(e => {
+            const entryDate = new Date(e.startDate);
+            return entryDate.toDateString() === dateStr;
+        });
+
+        const ctoBox = createColumnBox('Compensatory Time-Off', manualEntriesForDate.filter(e => e.title.includes('[CTO]')));
+        const wfhBox = createColumnBox('Work From Home', manualEntriesForDate.filter(e => e.title.includes('[WFH]')));
+        const travelBox = createColumnBox('Travel', manualEntriesForDate.filter(e => e.title.includes('[Travel]')));
+
+        columnSection.appendChild(ctoBox);
+        columnSection.appendChild(wfhBox);
+        columnSection.appendChild(travelBox);
+
+        panel.appendChild(columnSection);
+
+        return panel;
+    }
+
+    function createColumnBox(label, events) {
+        const box = document.createElement('div');
+        box.className = 'column-box';
+
+        const header = document.createElement('div');
+        header.className = 'column-header';
+        header.textContent = label;
+        box.appendChild(header);
+        const itemsContainer = document.createElement('div');
+        itemsContainer.className = 'column-items';
+
+        // inner wrapper for sliding
+        const slideInner = document.createElement('div');
+        slideInner.className = 'slide-inner';
+
+        if (events.length === 0) {
+            const emptyItem = document.createElement('div');
+            emptyItem.className = 'column-item';
+            emptyItem.style.color = 'var(--fg-muted)';
+            emptyItem.textContent = 'None';
+            slideInner.appendChild(emptyItem);
+        } else {
+            events.forEach(event => {
+                const item = document.createElement('div');
+                item.className = 'column-item';
+
+                // Remove the category prefix from display
+                const displayTitle = event.title.replace(/^\[(CTO|WFH|Travel)\]\s*/, '');
+
+                const titleSpan = document.createElement('div');
+                titleSpan.className = 'col-title';
+                titleSpan.textContent = displayTitle;
+
+                item.appendChild(titleSpan);
+                if (!event.isAllDay) {
+                  const timeSpan = document.createElement('div');
+                  timeSpan.className = 'col-time';
+                  timeSpan.textContent = formatTime(new Date(event.startDate));
+                  item.appendChild(timeSpan);
+                }
+                slideInner.appendChild(item);
+            });
+        }
+
+        itemsContainer.appendChild(slideInner);
+
+        // Evaluate slide for overflow and enable animation if needed
+        setTimeout(() => {
+          enableSlideIfNeeded(itemsContainer, slideInner, { speed: 30 });
+          // Add hover listeners to pause/resume via CSS (hover pause handled by .auto-slide:hover)
+        }, 60);
+
+        box.appendChild(itemsContainer);
+        return box;
     }
 
     function renderWeekView(container, events) {
@@ -1582,13 +2206,17 @@
           startDate = new Date(today.getFullYear(), today.getMonth(), 1);
           endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
           break;
-        default: // Day
+        default: // Day - show today and tomorrow
           startDate = today;
-          endDate = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+          endDate = new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000);
       }
       
-      // Include manual entries
-      const allEvents = [...events, ...state.manualEntries.map(e => ({...e, startDate: new Date(e.startDate), endDate: e.endDate ? new Date(e.endDate) : null}))];
+      // Include only Event-type manual entries (exclude CTO/WFH/Travel)
+      const eventTypeEntries = state.manualEntries
+        .filter(e => !e.title.includes('[CTO]') && !e.title.includes('[WFH]') && !e.title.includes('[Travel]'))
+        .map(e => ({...e, startDate: new Date(e.startDate), endDate: e.endDate ? new Date(e.endDate) : null}));
+      
+      const allEvents = [...events, ...eventTypeEntries];
       
       return allEvents.filter(event => {
         const eventStart = new Date(event.startDate);
@@ -1862,12 +2490,15 @@
       document.querySelectorAll('[data-view]').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.view === state.settings.viewMode);
       });
+
+      // Update compact view mode button label
+      updateViewModeButtonLabel();
       
       // Update movement buttons
       updateMovementButtons();
       
-      // Render manual entries
-      renderManualEntries();
+      // Render manual entries (now done per-category)
+      // renderManualEntries();
       
       // Show/hide custom inputs
       if (state.settings.refreshInterval === 'custom') {
@@ -1914,7 +2545,7 @@
               ${formatDateCustom(new Date(entry.startDate))}
               ${entry.isAllDay ? '' : ` at ${formatTime(new Date(entry.startDate))}`}
             </p>
-            ${entry.location ? `<p class="text-sm text-[var(--fg-muted)]">${escapeHtml(entry.location)}</p>` : ''}
+            ${entry.description ? `<p class="text-sm text-[var(--fg-muted)]">${escapeHtml(entry.description)}</p>` : ''}
           </div>
           <button class="text-[var(--completed)] hover:text-red-400 p-2" onclick="removeEntry(${index})" aria-label="Remove entry">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1924,6 +2555,43 @@
         </div>
       `).join('');
     }
+
+    function updateViewModeButtonLabel() {
+      const btn = document.getElementById('viewModeBtn');
+      if (!btn) return;
+      const mode = state.settings.viewMode || 'day';
+      const label = mode.charAt(0).toUpperCase() + mode.slice(1);
+      btn.textContent = `${label} ▾`;
+    }
+
+    // Auto-scroll helpers: enable CSS-driven slide on an inner element when its container is smaller
+    function enableSlideIfNeeded(container, inner, options = {}) {
+      if (!container || !inner) return;
+      // measure available visible height
+      const visibleH = container.clientHeight;
+      const contentH = inner.scrollHeight;
+      const distance = contentH - visibleH;
+      if (distance > 8) {
+        const speedPxPerSec = options.speed || 30;
+        const durationSec = Math.max(4, distance / speedPxPerSec);
+        inner.style.setProperty('--slide-distance', `-${distance}px`);
+        inner.style.setProperty('--slide-duration', `${durationSec}s`);
+        inner.classList.add('auto-slide');
+      } else {
+        inner.classList.remove('auto-slide');
+        inner.style.removeProperty('--slide-distance');
+        inner.style.removeProperty('--slide-duration');
+      }
+    }
+
+    function disableSlide(inner) {
+      if (!inner) return;
+      inner.classList.remove('auto-slide');
+      inner.style.removeProperty('--slide-distance');
+      inner.style.removeProperty('--slide-duration');
+    }
+
+    // Per-panel slide helpers handle overflow; no page-level auto-scroll is used.
 
     function formatDate(date) {
       return date.toLocaleDateString('en-US', { 
@@ -1938,6 +2606,11 @@
     // ============================================
     
     function setupEventListeners() {
+      // Add Entry button - open category selector modal
+      document.getElementById('addEntryBtn').addEventListener('click', () => {
+        document.getElementById('categoryModal').classList.add('open');
+      });
+
       // Gear button - open settings
       document.getElementById('gearBtn').addEventListener('click', () => {
         if (state.settings.pin) {
@@ -1959,6 +2632,9 @@
       document.getElementById('closeSettings').addEventListener('click', closeSettings);
       document.getElementById('settingsOverlay').addEventListener('click', closeSettings);
 
+      // Entries overlay
+      document.getElementById('entriesOverlay').addEventListener('click', closeEntries);
+
       // Tab switching
       document.querySelectorAll('[data-tab]').forEach(btn => {
         btn.addEventListener('click', () => switchTab(btn.dataset.tab));
@@ -1969,9 +2645,42 @@
         btn.addEventListener('click', () => {
           state.settings.viewMode = btn.dataset.view;
           updateSettingsUI();
+          saveToStorage();
           renderEvents();
         });
       });
+
+      // View mode dropdown logic (top control)
+      const viewModeBtn = document.getElementById('viewModeBtn');
+      const viewModeMenu = document.getElementById('viewModeMenu');
+      if (viewModeBtn && viewModeMenu) {
+        viewModeBtn.addEventListener('click', (e) => {
+          const open = viewModeMenu.classList.toggle('open');
+          viewModeBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+          viewModeMenu.setAttribute('aria-hidden', open ? 'false' : 'true');
+        });
+
+        // Close menu when clicking outside
+        document.addEventListener('click', (e) => {
+          if (!document.getElementById('viewModeContainer').contains(e.target)) {
+            viewModeMenu.classList.remove('open');
+            viewModeBtn.setAttribute('aria-expanded', 'false');
+            viewModeMenu.setAttribute('aria-hidden', 'true');
+          }
+        });
+
+        // Menu selection
+        viewModeMenu.querySelectorAll('[data-view]').forEach(mbtn => {
+          mbtn.addEventListener('click', () => {
+            state.settings.viewMode = mbtn.dataset.view;
+            saveToStorage();
+            updateSettingsUI();
+            renderEvents();
+            updateViewModeButtonLabel();
+            viewModeMenu.classList.remove('open');
+          });
+        });
+      }
 
       // Movement toggle
       document.getElementById('movementOn').addEventListener('click', () => {
@@ -2039,6 +2748,8 @@
           }
         }
       });
+
+      // Per-panel interaction: pause/resume handled by CSS hover on .auto-slide
     }
 
     function openSettings() {
@@ -2050,6 +2761,17 @@
     function closeSettings() {
       document.getElementById('settingsPanel').classList.remove('open');
       document.getElementById('settingsOverlay').classList.remove('open');
+    }
+
+    function openEntries() {
+      document.getElementById('entriesPanel').classList.add('open');
+      document.getElementById('entriesOverlay').classList.add('open');
+      document.body.classList.remove('cursor-hidden');
+    }
+
+    function closeEntries() {
+      document.getElementById('entriesPanel').classList.remove('open');
+      document.getElementById('entriesOverlay').classList.remove('open');
     }
 
     function closePinModal() {
@@ -2082,19 +2804,69 @@
       document.getElementById(`tab-${tabName}`).classList.remove('hidden');
     }
 
-    function addManualEntry() {
-      const title = document.getElementById('entryTitle').value.trim();
-      const date = document.getElementById('entryDate').value;
-      const startTime = document.getElementById('entryStartTime').value;
-      const endTime = document.getElementById('entryEndTime').value;
-      const location = document.getElementById('entryLocation').value.trim();
-      const description = document.getElementById('entryDescription').value.trim();
+    function selectCategory(category) {
+      closeCategoryModal();
+      document.getElementById('entriesOverlay').classList.add('open');
+      document.getElementById('entriesPanel').classList.add('open');
       
-      if (!title || !date) {
-        alert('Please enter a title and date');
-        return;
+      // Hide all sections
+      document.getElementById('eventSection').classList.add('hidden');
+      document.getElementById('ctoSection').classList.add('hidden');
+      document.getElementById('wfhSection').classList.add('hidden');
+      document.getElementById('travelSection').classList.add('hidden');
+      
+      // Show selected section and render entries
+      if (category === 'Event') {
+        document.getElementById('eventSection').classList.remove('hidden');
+        document.getElementById('entriesPanelTitle').textContent = 'Add Event';
+      } else if (category === 'CTO') {
+        document.getElementById('ctoSection').classList.remove('hidden');
+        document.getElementById('entriesPanelTitle').textContent = 'Add CTO';
+      } else if (category === 'WFH') {
+        document.getElementById('wfhSection').classList.remove('hidden');
+        document.getElementById('entriesPanelTitle').textContent = 'Add WFH';
+      } else if (category === 'Travel') {
+        document.getElementById('travelSection').classList.remove('hidden');
+        document.getElementById('entriesPanelTitle').textContent = 'Add Travel';
       }
       
+      renderAllEntries();
+    }
+
+    function closeCategoryModal() {
+      document.getElementById('categoryModal').classList.remove('open');
+    }
+
+    function closeEntries() {
+      document.getElementById('entriesPanel').classList.remove('open');
+      document.getElementById('entriesOverlay').classList.remove('open');
+    }
+
+    function addCategoryEntry(category) {
+      let title, date, startTime = '', endTime = '', description = '';
+      
+      if (category === 'Event') {
+        title = document.getElementById('eventTitle').value.trim();
+        date = document.getElementById('eventDate').value;
+        startTime = document.getElementById('eventStartTime').value;
+        endTime = document.getElementById('eventEndTime').value;
+        description = document.getElementById('eventDetails').value.trim();
+      } else if (category === 'CTO') {
+        title = document.getElementById('ctoPersonName').value.trim();
+        date = document.getElementById('ctoCtoDate').value;
+      } else if (category === 'WFH') {
+        title = document.getElementById('wfhPersonName').value.trim();
+        date = document.getElementById('wfhWfhDate').value;
+      } else if (category === 'Travel') {
+        title = document.getElementById('travelPersonName').value.trim();
+        date = document.getElementById('travelTravelDate').value;
+      }
+      
+      if (!title || !date) {
+        alert('Please enter required fields');
+        return;
+      }
+
       const startDate = new Date(date);
       if (startTime) {
         const [hours, minutes] = startTime.split(':');
@@ -2109,11 +2881,10 @@
       }
       
       const entry = {
-        id: `manual-${Date.now()}`,
-        title,
+        id: `${category.toLowerCase()}-${Date.now()}`,
+        title: category === 'Event' ? title : `[${category}] ${title}`,
         startDate: startDate.toISOString(),
         endDate: endDate ? endDate.toISOString() : null,
-        location,
         description,
         isAllDay: !startTime,
         status: 'confirmed',
@@ -2122,22 +2893,68 @@
       
       state.manualEntries.push(entry);
       saveToStorage();
-      renderManualEntries();
+      renderAllEntries();
       renderEvents();
       
-      // Clear form
-      document.getElementById('entryTitle').value = '';
-      document.getElementById('entryDate').value = '';
-      document.getElementById('entryStartTime').value = '';
-      document.getElementById('entryEndTime').value = '';
-      document.getElementById('entryLocation').value = '';
-      document.getElementById('entryDescription').value = '';
+      // Clear form based on category
+      if (category === 'Event') {
+        document.getElementById('eventTitle').value = '';
+        document.getElementById('eventDate').value = '';
+        document.getElementById('eventStartTime').value = '';
+        document.getElementById('eventEndTime').value = '';
+        document.getElementById('eventDetails').value = '';
+      } else if (category === 'CTO') {
+        document.getElementById('ctoPersonName').value = '';
+        document.getElementById('ctoCtoDate').value = '';
+      } else if (category === 'WFH') {
+        document.getElementById('wfhPersonName').value = '';
+        document.getElementById('wfhWfhDate').value = '';
+      } else if (category === 'Travel') {
+        document.getElementById('travelPersonName').value = '';
+        document.getElementById('travelTravelDate').value = '';
+      }
+    }
+
+    function renderAllEntries() {
+      const container = document.getElementById('entriesList');
+      
+      if (state.manualEntries.length === 0) {
+        container.innerHTML = '<p class="text-[var(--fg-muted)] text-sm">No entries yet</p>';
+        return;
+      }
+      
+      container.innerHTML = state.manualEntries.map((entry, index) => `
+        <div class="entry-card flex items-start justify-between gap-4">
+          <div class="flex-1 min-w-0">
+            <h5 class="font-medium truncate">${escapeHtml(entry.title)}</h5>
+            <p class="text-sm text-[var(--fg-muted)]">
+              ${formatDateCustom(new Date(entry.startDate))}
+              ${entry.isAllDay ? '' : ` at ${formatTime(new Date(entry.startDate))}`}
+            </p>
+            ${entry.description ? `<p class="text-sm text-[var(--fg-muted)]">${escapeHtml(entry.description)}</p>` : ''}
+          </div>
+          <button class="text-[var(--completed)] hover:text-red-400 p-2" onclick="removeEntry(${index})" aria-label="Remove entry">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+      `).join('');
+    }
+    function renderCategoryEntries(category) {
+      // This function is no longer needed but kept for compatibility
+      return;
+    }
+
+    function addManualEntry() {
+      // This function is kept for backward compatibility but is no longer used directly
+      return;
     }
 
     window.removeEntry = function(index) {
       state.manualEntries.splice(index, 1);
       saveToStorage();
-      renderManualEntries();
+      renderAllEntries();
       renderEvents();
     };
 
